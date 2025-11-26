@@ -2,8 +2,10 @@
 
 
 
+
+
 import React, { useState, useEffect } from 'react';
-import { Rocket, Layers, Menu, X, Languages, Sun, Moon, Activity, Video, Settings2, Globe, Grid, Map } from 'lucide-react';
+import { Rocket, Layers, Menu, X, Languages, Sun, Moon, Activity, Video, Settings2, Globe, Grid, Map, Monitor } from 'lucide-react';
 import { DEFAULT_SIMULATION_SETTINGS } from './constants';
 import { OptimizationTool } from './components/OptimizationTool';
 import { MultiStageTool } from './components/MultiStageTool';
@@ -34,7 +36,7 @@ function App() {
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { t, language, setLanguage } = useLanguage();
-  const { theme, toggleTheme } = useTheme();
+  const { preference, cycleTheme } = useTheme();
   
   // Get Global Game Data
   const { activePlanet, activePlanetId, setActivePlanetId, planets, difficulty } = useGameData();
@@ -126,11 +128,18 @@ function App() {
             {/* Theme Toggle */}
             <div className="px-2">
               <button 
-                onClick={toggleTheme}
+                onClick={cycleTheme}
                 className="flex items-center gap-2 w-full px-3 py-2 text-sm text-space-400 hover:text-space-100 hover:bg-space-800 rounded-md transition-colors"
+                title="Switch Theme"
               >
-                {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-                <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+                {preference === 'light' ? <Sun size={16} /> : 
+                 preference === 'dark' ? <Moon size={16} /> : 
+                 <Monitor size={16} />}
+                <span>
+                  {preference === 'light' ? t('theme_light') : 
+                   preference === 'dark' ? t('theme_dark') : 
+                   t('theme_system')}
+                </span>
               </button>
             </div>
 

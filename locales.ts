@@ -8,6 +8,11 @@ export const translations = {
     system_body: 'Target Body',
     version: 'v1.3.0 • SFS Engineering Companion',
     
+    // Theme
+    theme_system: 'Auto (System)',
+    theme_light: 'Light Mode',
+    theme_dark: 'Dark Mode',
+
     // Navigation
     nav_optimize: 'Single Stage Designer',
     nav_simulator: 'Flight Simulation',
@@ -261,11 +266,21 @@ export const translations = {
     ms_add_stage: 'Add Stage',
     ms_total_dv: 'Total Delta-V',
     ms_stage: 'Stage {n}',
+    ms_payload: 'Payload Mass',
+    ms_engine_config: 'Engine Configuration',
+    ms_custom_engine: 'Custom / Other',
     ms_dry_mass: 'Dry Mass (t)',
     ms_fuel_mass: 'Fuel Mass (t)',
     ms_thrust: 'Thrust (t)',
     ms_isp: 'Isp (s)',
-    ms_total_mass: 'Wet Mass',
+    ms_total_mass: 'Launch Mass',
+    ms_burn_time: 'Burn Time',
+    ms_end_twr: 'Burnout TWR',
+    ms_start_twr: 'Start TWR',
+    ms_move_up: 'Move Up',
+    ms_move_down: 'Move Down',
+    ms_remove: 'Remove Stage',
+    ms_cumulative: 'Cumulative Δv',
     
     // Errors
     err_neg: 'Must be positive',
@@ -277,6 +292,11 @@ export const translations = {
     system_body: '目标天体',
     version: 'v1.3.0 • Space Flight Simulator 辅助工具',
     
+    // Theme
+    theme_system: '自动 (跟随系统)',
+    theme_light: '浅色模式',
+    theme_dark: '深色模式',
+
     // Navigation
     nav_optimize: '单级火箭设计',
     nav_simulator: '飞行模拟',
@@ -526,15 +546,25 @@ export const translations = {
 
     // Multi-Stage Tool
     ms_title: '多级火箭规划',
-    ms_desc: '计算多级运载火箭的 Δv 预算 (Delta-V Budget) 和各级推重比。',
+    ms_desc: '计算多级运载火箭的 Δv 预算、燃烧时间及推重比。',
     ms_add_stage: '添加一级',
     ms_total_dv: '总 Δv',
     ms_stage: '第 {n} 级',
+    ms_payload: '有效载荷 (t)',
+    ms_engine_config: '引擎配置',
+    ms_custom_engine: '自定义 / 其他',
     ms_dry_mass: '干重 (t)',
     ms_fuel_mass: '燃料 (t)',
     ms_thrust: '推力 (t)',
-    ms_isp: '比冲 (s)',
+    ms_isp: 'Isp (s)',
     ms_total_mass: '起飞质量',
+    ms_burn_time: '燃烧时间 (s)',
+    ms_end_twr: '熄火 TWR',
+    ms_start_twr: '点火 TWR',
+    ms_move_up: '上移',
+    ms_move_down: '下移',
+    ms_remove: '删除',
+    ms_cumulative: '累计 Δv',
     
     // Errors
     err_neg: '必须为正数',
