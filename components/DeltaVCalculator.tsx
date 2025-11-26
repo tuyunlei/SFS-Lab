@@ -1,11 +1,10 @@
 
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useGameData } from '../contexts/GameDataContext';
 import { BodyId, LocationType, calculateRoute, TravelStep, BASE_BODIES } from '../services/deltav';
 import { InputGroup, Select, NumberInput } from './InputGroup';
-import { ArrowRight, Plane, Rocket, Flag, Orbit, Wind, Map, AlertTriangle, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { ArrowRight, Plane, Rocket, Flag, Orbit, Wind, Map, AlertTriangle, ArrowUpCircle, ArrowDownCircle, RefreshCw } from 'lucide-react';
 
 const BODIES: BodyId[] = ['earth', 'moon', 'mars', 'venus'];
 const LOCATIONS: LocationType[] = ['surface', 'orbit'];
@@ -40,9 +39,6 @@ const LocationSelector = ({
       high: base.highOrbitHeight * mult
     };
   }, [value.body, difficulty]);
-
-  // Reset orbit height to default Low when body changes if it was previously set to a default
-  // (Optional UX improvement, kept simple for now)
 
   return (
     <div className="space-y-3 p-4 bg-space-900/30 rounded-lg border border-space-700/30">
@@ -112,12 +108,10 @@ export const DeltaVCalculator: React.FC = () => {
 
   const [origin, setOrigin] = useState<LocationState>({ body: 'earth', type: 'surface', orbitHeight: 30 });
   const [dest, setDest] = useState<LocationState>({ body: 'moon', type: 'surface', orbitHeight: 15 });
-  const [useAerobraking, setUseAerobraking] = useState(true);
 
   // Sync defaults when difficulty changes
   useEffect(() => {
      const mult = difficulty === 'hard' ? 2 : 1;
-     // Only update if they match the OLD default (heuristic) or just force update to Low
      setOrigin(prev => ({ ...prev, orbitHeight: BASE_BODIES[prev.body].orbitHeight * mult }));
      setDest(prev => ({ ...prev, orbitHeight: BASE_BODIES[prev.body].orbitHeight * mult }));
   }, [difficulty]);
@@ -126,10 +120,9 @@ export const DeltaVCalculator: React.FC = () => {
     return calculateRoute(
       { bodyId: origin.body, type: origin.type, orbitHeight: origin.orbitHeight },
       { bodyId: dest.body, type: dest.type, orbitHeight: dest.orbitHeight },
-      useAerobraking,
       difficulty
     );
-  }, [origin, dest, useAerobraking, difficulty]);
+  }, [origin, dest, difficulty]);
 
   const totalDeltaV = route.reduce((acc, step) => acc + step.deltaV, 0);
 
@@ -140,6 +133,7 @@ export const DeltaVCalculator: React.FC = () => {
       case 'capture': return <Orbit size={20} className="text-space-success" />;
       case 'landing': return <Flag size={20} className="text-space-danger" />;
       case 'change': return <ArrowUpCircle size={20} className="text-indigo-400" />;
+      case 'circularize': return <RefreshCw size={20} className="text-emerald-400" />;
       default: return <ArrowRight size={20} />;
     }
   };
@@ -182,26 +176,6 @@ export const DeltaVCalculator: React.FC = () => {
               onChange={setDest} 
               difficulty={difficulty}
             />
-
-            <div className="border-t border-space-700/50 pt-4">
-              <InputGroup 
-                label={t('dv_aerobrake')} 
-                subLabel={t('dv_aerobrake_sub')}
-              >
-                 <label className="flex items-center gap-3 p-3 bg-space-900/50 rounded-lg border border-space-700/50 cursor-pointer hover:bg-space-900 transition">
-                    <input 
-                      type="checkbox" 
-                      className="w-5 h-5 text-space-accent rounded border-space-600 focus:ring-offset-space-900"
-                      checked={useAerobraking}
-                      onChange={(e) => setUseAerobraking(e.target.checked)}
-                    />
-                    <div className="flex items-center gap-2 text-sm text-space-200">
-                       <Wind size={16} className={useAerobraking ? 'text-space-accent' : 'text-space-600'} />
-                       <span>{t('dv_aerobrake')}</span>
-                    </div>
-                 </label>
-              </InputGroup>
-            </div>
           </div>
         </section>
 
@@ -262,11 +236,6 @@ export const DeltaVCalculator: React.FC = () => {
                             {step.details.orbitHeight !== undefined && (
                               <span className="inline-flex items-center gap-1 text-xs text-space-300 bg-space-700/30 px-2 py-1 rounded">
                                  <Orbit size={12} /> {t('dv_orbit_alt', { alt: step.details.orbitHeight })}
-                              </span>
-                            )}
-                             {step.details.isAerobraking && (
-                              <span className="inline-flex items-center gap-1 text-xs text-space-accent bg-space-accent/10 px-2 py-1 rounded">
-                                 <Wind size={12} /> {t('dv_free')}
                               </span>
                             )}
                          </div>

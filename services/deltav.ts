@@ -1,3 +1,4 @@
+
 import { PLANETS } from '../constants';
 
 export type BodyId = 'earth' | 'moon' | 'mars' | 'venus';
@@ -10,14 +11,13 @@ export interface Location {
 }
 
 export interface TravelStep {
-  type: 'ascent' | 'transfer' | 'capture' | 'landing' | 'change';
+  type: 'ascent' | 'transfer' | 'capture' | 'landing' | 'change' | 'circularize';
   from: Location;
   to: Location;
   deltaV: number;
   descriptionKey: string;
   details?: {
     orbitHeight?: number;
-    isAerobraking?: boolean;
   };
 }
 
@@ -74,7 +74,7 @@ export const BASE_BODIES: Record<BodyId, BodyData> = {
     captureFromEarthTransfer: 700 
   },
   venus: {
-    orbitHeight: 40,
+    orbitHeight: 40, 
     highOrbitHeight: 500,
     ascentCost: 5000, 
     hasAtmosphere: true,
@@ -126,14 +126,10 @@ const calculateHohmannTransfer = (
 export const calculateRoute = (
   from: Location, 
   to: Location, 
-  useAerobraking: boolean,
   difficulty: 'normal' | 'hard' = 'normal'
 ): TravelStep[] => {
   const steps: TravelStep[] = [];
   
-  // Helper to create a location string for comparison
-  const locId = (l: Location) => `${l.bodyId}_${l.type}`;
-
   // Helper to get scaled body data
   // Hard Mode: DV * 1.414, Heights * 2
   const dvMult = difficulty === 'hard' ? 1.4142 : 1.0;
@@ -221,15 +217,14 @@ export const calculateRoute = (
     const ejectionCost = body.captureFromEarthTransfer;
     
     // Capture at Earth (coming from Moon/Mars/Venus)
-    const earthCaptureCost = useAerobraking ? 0 : body.transferFromEarthLEO; 
+    const earthCaptureCost = body.transferFromEarthLEO; 
 
     steps.push({
       type: 'transfer',
       from: { ...currentLocation },
       to: { bodyId: 'earth', type: 'orbit', orbitHeight: BASE_BODIES.earth.orbitHeight * heightMult },
       deltaV: ejectionCost + earthCaptureCost,
-      descriptionKey: 'dv_phase_transfer',
-      details: { isAerobraking: useAerobraking }
+      descriptionKey: 'dv_phase_transfer'
     });
     currentLocation = { bodyId: 'earth', type: 'orbit', orbitHeight: BASE_BODIES.earth.orbitHeight * heightMult };
   }
@@ -248,86 +243,95 @@ export const calculateRoute = (
       descriptionKey: 'dv_phase_transfer'
     });
 
-    // === OPTIMIZED CAPTURE LOGIC ===
-    // Check if we can capture directly into a High Orbit more efficiently than capturing Low + Hohmann
-    const baseCaptureCost = (useAerobraking && destBody.hasAtmosphere) ? 0 : destBody.captureFromEarthTransfer;
+    // === PHASE 2.5: CAPTURE LOGIC ===
+    // We arrive at the target planet's SOI. We need to capture.
     
-    let captureDv = baseCaptureCost;
-    let circularizationStep: TravelStep | null = null;
-    let captureOrbitHeight = destBody.orbitHeight;
+    let captureDv1 = 0; // The capture burn at Pe
+    let captureDv2 = 0; // The circularization burn at Ap (if needed)
+    let captureDescription = 'dv_phase_capture';
+    
+    // Low Orbit (Standard) Capture
+    const lowOrbitHeight = destBody.orbitHeight;
+    const baseCaptureCost = destBody.captureFromEarthTransfer;
+    
+    // Target Orbit Height
+    const targetHeight = (to.type === 'orbit' && to.orbitHeight) ? to.orbitHeight : lowOrbitHeight;
 
-    // Optimization: If target is High Orbit and we are NOT using Aerobraking (which forces a low periapsis usually)
-    if (to.type === 'orbit' && to.orbitHeight && to.orbitHeight > destBody.orbitHeight && (!useAerobraking || !destBody.hasAtmosphere)) {
-       const { radius, mu } = getPlanetPhysics(to.bodyId, difficulty);
-       
-       const r_low = radius + (destBody.orbitHeight * 1000);
-       const r_high = radius + (to.orbitHeight * 1000);
-       
-       // 1. Derive Arrival Velocity at Periapsis from the map data
-       // V_arrival = V_circ_low + CaptureCost (This simulates the hyperbolic excess velocity at Pe)
-       const v_circ_low = Math.sqrt(mu / r_low);
-       const v_arrival = v_circ_low + baseCaptureCost;
-       
-       // 2. Target: Elliptical Orbit (Pe = Low, Ap = High)
-       const a_trans = (r_low + r_high) / 2;
-       const v_p_trans = Math.sqrt(mu * (2/r_low - 1/a_trans)); // Velocity required at Pe for Elliptical
-       const v_a_trans = Math.sqrt(mu * (2/r_high - 1/a_trans)); // Velocity at Ap of Elliptical
-       
-       // 3. Capture Burn: Hyperbolic -> Elliptical
-       // We slow down from Arrival Velocity to the Elliptical Periapsis Velocity
-       const dv_capture_ellip = Math.max(0, v_arrival - v_p_trans);
-       
-       // 4. Circularize Burn: At Apoapsis
-       const v_circ_high = Math.sqrt(mu / r_high);
-       const dv_circ = Math.abs(v_circ_high - v_a_trans);
-
-       // Apply Optimized Values
-       captureDv = dv_capture_ellip;
-       captureOrbitHeight = destBody.orbitHeight; // We are still physically at Low altitude during capture burn
-
-       circularizationStep = {
-         type: 'change',
-         from: { bodyId: to.bodyId, type: 'orbit', orbitHeight: destBody.orbitHeight }, // Conceptual start of circularization phase
-         to: { ...to },
-         deltaV: dv_circ,
-         descriptionKey: 'dv_phase_hohmann', // "Circularization Burn"
-         details: { orbitHeight: to.orbitHeight }
-       };
-    }
-
-    // Push Capture Step
-    steps.push({
-      type: 'capture',
-      from: { bodyId: to.bodyId, type: 'orbit' },
-      to: { bodyId: to.bodyId, type: 'orbit', orbitHeight: captureOrbitHeight }, 
-      deltaV: captureDv,
-      descriptionKey: 'dv_phase_capture',
-      details: { 
-        orbitHeight: circularizationStep ? to.orbitHeight : destBody.orbitHeight, // Display target height if optimizing
-        isAerobraking: useAerobraking && destBody.hasAtmosphere
-      }
-    });
-
-    if (circularizationStep) {
-      steps.push(circularizationStep);
-      currentLocation = { ...to }; // We are now at the target high orbit
+    if (targetHeight <= lowOrbitHeight + 1) {
+      // Direct Low Capture (Standard)
+      captureDv1 = baseCaptureCost;
+      captureDescription = 'dv_phase_capture';
+      
+      steps.push({
+        type: 'capture',
+        from: { bodyId: to.bodyId, type: 'orbit' }, 
+        to: { bodyId: to.bodyId, type: 'orbit', orbitHeight: targetHeight }, 
+        deltaV: captureDv1,
+        descriptionKey: captureDescription,
+        details: { orbitHeight: targetHeight }
+      });
     } else {
-      currentLocation = { bodyId: to.bodyId, type: 'orbit', orbitHeight: destBody.orbitHeight };
+      // Oberth-Optimized High Orbit Capture
+      // Strategy: 
+      // 1. Dive to Low Orbit (Pe) to maximize speed.
+      // 2. Burn at Pe to capture into an Elliptical Orbit (Pe = Low, Ap = Target).
+      // 3. Coast to Ap and Circularize.
+      
+      const { radius, mu } = getPlanetPhysics(to.bodyId, difficulty);
+      const r_low = radius + (lowOrbitHeight * 1000);
+      const r_target = radius + (targetHeight * 1000);
+      
+      // Calculate Velocity at Low Orbit Pe upon arrival from Earth
+      // V_arrival_low = V_circ_low + baseCaptureCost
+      const v_circ_low = Math.sqrt(mu / r_low);
+      const v_arrival_low = v_circ_low + baseCaptureCost;
+      
+      // Calculate Required Velocity at Pe for the Elliptical Transfer Orbit (Pe=low, Ap=target)
+      // Vis-viva: v^2 = mu * (2/r - 1/a)
+      const semiMajorAxis = (r_low + r_target) / 2;
+      const v_pe_transfer = Math.sqrt(mu * ((2 / r_low) - (1 / semiMajorAxis)));
+      
+      // Burn 1: Capture into Ellipse
+      captureDv1 = Math.abs(v_arrival_low - v_pe_transfer);
+      
+      // Burn 2: Circularize at Ap
+      // Velocity at Ap of Transfer Orbit
+      const v_ap_transfer = Math.sqrt(mu * ((2 / r_target) - (1 / semiMajorAxis)));
+      // Target Circular Velocity
+      const v_circ_target = Math.sqrt(mu / r_target);
+      
+      captureDv2 = Math.abs(v_circ_target - v_ap_transfer);
+      
+      // Step 1: Capture to Ellipse
+      steps.push({
+        type: 'capture',
+        from: { bodyId: to.bodyId, type: 'orbit' },
+        to: { bodyId: to.bodyId, type: 'orbit', orbitHeight: targetHeight },
+        deltaV: captureDv1,
+        descriptionKey: 'dv_step_capture_ellip',
+        details: { orbitHeight: lowOrbitHeight } // We burn at low orbit height
+      });
+      
+      // Step 2: Circularize
+      steps.push({
+        type: 'circularize',
+        from: { bodyId: to.bodyId, type: 'orbit' },
+        to: { bodyId: to.bodyId, type: 'orbit', orbitHeight: targetHeight },
+        deltaV: captureDv2,
+        descriptionKey: 'dv_step_circ',
+        details: { orbitHeight: targetHeight }
+      });
     }
+
+    currentLocation = { bodyId: to.bodyId, type: 'orbit', orbitHeight: targetHeight };
   }
 
-  // === PHASE 3: Arrival (At Destination Low Orbit or Optimized Orbit) ===
+  // === PHASE 3: Arrival (Descent to Surface) ===
 
   if (to.type === 'surface') {
     // Low Orbit -> Surface
     const body = getBody(to.bodyId);
     let landingCost = body.ascentCost;
-    let isFree = false;
-
-    if (body.hasAtmosphere && useAerobraking) {
-      landingCost = 0; // Parachutes
-      isFree = true;
-    }
 
     steps.push({
       type: 'landing',
@@ -335,26 +339,9 @@ export const calculateRoute = (
       to: { ...to },
       deltaV: landingCost,
       descriptionKey: 'dv_phase_landing',
-      details: { isAerobraking: isFree }
+      details: {}
     });
-  } else {
-    // Low Orbit -> Target Orbit
-    // If we used Optimized Capture above, currentLocation is already at Target, so this diff will be 0 and skipped.
-    const currentHeight = currentLocation.orbitHeight || getBody(to.bodyId).orbitHeight;
-    const targetHeight = to.orbitHeight || getBody(to.bodyId).orbitHeight;
-
-    if (Math.abs(currentHeight - targetHeight) > 1) {
-      const dv = calculateHohmannTransfer(to.bodyId, currentHeight, targetHeight, difficulty);
-      steps.push({
-        type: 'change',
-        from: { ...currentLocation },
-        to: { ...to },
-        deltaV: dv,
-        descriptionKey: 'dv_phase_hohmann',
-        details: { orbitHeight: targetHeight }
-      });
-    }
-  }
+  } 
 
   return steps;
 };

@@ -1,5 +1,6 @@
 
 
+
 export const translations = {
   en: {
     // General
@@ -205,6 +206,8 @@ export const translations = {
     dv_step_capture: 'Orbital Capture',
     dv_step_land: 'Landing / Descent',
     dv_step_change: 'Orbit Change',
+    dv_step_capture_ellip: 'Elliptical Capture (Oberth)',
+    dv_step_circ: 'Circularization',
     dv_phase_ascent: 'Ascent to Low Orbit',
     dv_phase_transfer: 'Transfer Injection',
     dv_phase_capture: 'Capture Burn',
@@ -290,7 +293,7 @@ export const translations = {
     app_title: 'SFS 航天实验室',
     tools: '工程工具箱',
     system_body: '目标天体',
-    version: 'v1.3.0 • Space Flight Simulator 辅助工具',
+    version: 'v1.3.0 • SFS Engineering Companion',
     
     // Theme
     theme_system: '自动 (跟随系统)',
@@ -489,6 +492,8 @@ export const translations = {
     dv_step_capture: '轨道捕获',
     dv_step_land: '降落/着陆',
     dv_step_change: '变轨机动',
+    dv_step_capture_ellip: '椭圆捕获 (奥伯特机动)',
+    dv_step_circ: '轨道圆化',
     dv_phase_ascent: '起飞至低轨道',
     dv_phase_transfer: '转移变轨',
     dv_phase_capture: '捕获制动',
