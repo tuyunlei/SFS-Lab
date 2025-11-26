@@ -1,0 +1,104 @@
+
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SFS Lab</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      :root {
+        /* Light Mode Palette (Slate) */
+        --color-space-900: #F8FAFC; /* Slate 50 */
+        --color-space-800: #FFFFFF; /* White */
+        --color-space-700: #E2E8F0; /* Slate 200 */
+        --color-space-600: #CBD5E1; /* Slate 300 */
+        --color-space-500: #64748B; /* Slate 500 */
+        --color-space-400: #475569; /* Slate 600 */
+        --color-space-300: #334155; /* Slate 700 */
+        --color-space-200: #1E293B; /* Slate 800 */
+        --color-space-100: #0F172A; /* Slate 900 */
+        --color-space-accent: #0EA5E9; /* Sky 500 */
+      }
+      
+      .dark {
+        /* Dark Mode Palette (Original) */
+        --color-space-900: #0B0D17;
+        --color-space-800: #15192B;
+        --color-space-700: #1F253D;
+        --color-space-600: #2E3652;
+        --color-space-500: #4B5578;
+        --color-space-400: #94A3B8;
+        --color-space-300: #CBD5E1;
+        --color-space-200: #E2E8F0;
+        --color-space-100: #FFFFFF;
+        --color-space-accent: #38BDF8; /* Sky 400 */
+      }
+
+      body {
+        background-color: var(--color-space-900);
+        color: var(--color-space-100);
+      }
+      
+      /* Custom scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: var(--color-space-900);
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--color-space-600);
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--color-space-500);
+      }
+    </style>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              space: {
+                900: 'var(--color-space-900)',
+                800: 'var(--color-space-800)',
+                700: 'var(--color-space-700)',
+                600: 'var(--color-space-600)',
+                500: 'var(--color-space-500)',
+                400: 'var(--color-space-400)',
+                300: 'var(--color-space-300)',
+                200: 'var(--color-space-200)',
+                100: 'var(--color-space-100)',
+                accent: 'var(--color-space-accent)',
+                success: '#34D399', // Emerald 400
+                warning: '#FBBF24', // Amber 400
+                danger: '#F87171', // Red 400
+              }
+            },
+            fontFamily: {
+              mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', "Liberation Mono", "Courier New", 'monospace'],
+            }
+          }
+        }
+      }
+    </script>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "recharts": "https://aistudiocdn.com/recharts@^3.5.0",
+    "@google/genai": "https://esm.run/@google/genai"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

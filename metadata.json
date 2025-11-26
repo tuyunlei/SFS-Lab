@@ -1,0 +1,5 @@
+{
+  "name": "SFS Lab: Rocket Optimizer",
+  "description": "A high-precision rocket design calculator for Space Flight Simulator players. Features numerical integration for altitude optimization, Delta-V calculation, and multi-planet parameter support.",
+  "requestFramePermissions": []
+}
