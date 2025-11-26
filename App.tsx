@@ -1,7 +1,9 @@
 
 
+
+
 import React, { useState, useEffect } from 'react';
-import { Rocket, Layers, Menu, X, Languages, Sun, Moon, Activity, Video, Settings2, Globe, Grid } from 'lucide-react';
+import { Rocket, Layers, Menu, X, Languages, Sun, Moon, Activity, Video, Settings2, Globe, Grid, Map } from 'lucide-react';
 import { DEFAULT_SIMULATION_SETTINGS } from './constants';
 import { OptimizationTool } from './components/OptimizationTool';
 import { MultiStageTool } from './components/MultiStageTool';
@@ -9,6 +11,7 @@ import { FlightSimulator } from './components/FlightSimulator';
 import { VideoAnalyzer } from './components/VideoAnalyzer';
 import { ConfigPage } from './components/ConfigPage';
 import { PayloadFuelOptimizer } from './components/PayloadFuelOptimizer';
+import { DeltaVCalculator } from './components/DeltaVCalculator';
 import { SimulationSettings } from './types';
 import { useLanguage } from './contexts/LanguageContext';
 import { useTheme } from './contexts/ThemeContext';
@@ -17,7 +20,7 @@ import { useGameData } from './contexts/GameDataContext';
 const STORAGE_KEY_SETTINGS = 'sfs_sim_settings';
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'optimize' | 'payload_opt' | 'simulator' | 'multistage' | 'analyzer' | 'config'>('optimize');
+  const [activeTab, setActiveTab] = useState<'optimize' | 'payload_opt' | 'simulator' | 'multistage' | 'analyzer' | 'config' | 'deltav'>('deltav');
   
   // Persist settings to localStorage
   const [simulationSettings, setSimulationSettings] = useState<SimulationSettings>(() => {
@@ -108,6 +111,7 @@ function App() {
 
           <nav className="space-y-2 flex-1">
             <div className="text-xs font-semibold text-space-600 uppercase tracking-wider px-4 mb-2">{t('tools')}</div>
+            <NavItem id="deltav" label={t('nav_deltav')} icon={Map} />
             <NavItem id="optimize" label={t('nav_optimize')} icon={Rocket} />
             <NavItem id="payload_opt" label={t('nav_payload_opt')} icon={Grid} />
             <NavItem id="simulator" label={t('nav_simulator')} icon={Activity} />
@@ -159,6 +163,7 @@ function App() {
                  activeTab === 'simulator' ? t('sim_title') : 
                  activeTab === 'analyzer' ? t('va_title') :
                  activeTab === 'config' ? t('cfg_title') :
+                 activeTab === 'deltav' ? t('dv_title') :
                  t('ms_title')}
               </h1>
               <p className="text-space-400 text-sm">
@@ -167,6 +172,7 @@ function App() {
                  activeTab === 'simulator' ? t('sim_desc') :
                  activeTab === 'analyzer' ? t('va_desc') :
                  activeTab === 'config' ? t('cfg_desc') :
+                 activeTab === 'deltav' ? t('dv_desc') :
                  t('ms_desc')
                 }
               </p>
@@ -196,6 +202,8 @@ function App() {
               <VideoAnalyzer />
             ) : activeTab === 'config' ? (
               <ConfigPage />
+            ) : activeTab === 'deltav' ? (
+              <DeltaVCalculator />
             ) : (
               <MultiStageTool planet={activePlanet} />
             )}
