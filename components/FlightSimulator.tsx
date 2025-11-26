@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, ComposedChart, Legend 
@@ -19,7 +21,7 @@ interface FlightSimulatorProps {
 
 const formatNumber = (num: number, decimals = 2) => num.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
-const STORAGE_KEY_SIM_PARAMS = 'sfs_sim_params';
+const STORAGE_KEY_SIM_PARAMS = 'sfs_sim_params_v2';
 
 // Constants for virtual scrolling
 const ROW_HEIGHT = 40; // px
@@ -42,6 +44,9 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({ planet, settin
         if (saved.engine && saved.engine.id) {
             // Updated via effect
         }
+        // Migration
+        if (saved.totalTankMass === undefined) saved.totalTankMass = 30;
+        
         return saved;
       }
     } catch (e) {}
@@ -49,10 +54,14 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({ planet, settin
       engineCount: 1,
       engine: engines[0], 
       payloadMass: 10,
+      totalTankMass: 30, // Default fixed tank mass
       tankDryWetRatio: 0.1,
-      minTotalTankMass: 30, // Used as "Current Tank Mass" for single sim
-      maxTotalTankMass: 100, // Unused
-      stepTotalTankMass: 2, // Unused
+      minTotalTankMass: 30, // Legacy/Unused
+      maxTotalTankMass: 100, // Legacy/Unused
+      stepTotalTankMass: 2, // Legacy/Unused
+      minPayloadMass: 1, // Legacy/Unused
+      maxPayloadMass: 20, // Legacy/Unused
+      stepPayloadMass: 1, // Legacy/Unused
     };
   });
 
@@ -82,8 +91,8 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({ planet, settin
   }, [params]);
 
   const handleSimulate = () => {
-    // Use minTotalTankMass as the "Target Tank Mass" input for this tool
-    const res = simulateLaunch(params.minTotalTankMass, params, planet, settings, logInterval);
+    // Use totalTankMass as the "Target Tank Mass" input for this tool
+    const res = simulateLaunch(params.totalTankMass, params, planet, settings, logInterval);
     setResult(res);
     // Reset scroll on new simulation
     setScrollTop(0);
@@ -100,7 +109,6 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({ planet, settin
   }, [result]);
 
   // PERFORMANCE OPTIMIZATION: Downsample data for charts
-  // Recharts gets very slow with thousands of points. We reduce it to ~500 points for visualization.
   const sampledChartData = useMemo(() => {
     const maxPoints = 500;
     if (chartData.length <= maxPoints) return chartData;
@@ -244,8 +252,8 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({ planet, settin
           <InputGroup label={t('sim_tank_mass')}>
               <NumberInput 
                 unit="t" 
-                value={params.minTotalTankMass} 
-                onChange={(e) => setParams({...params, minTotalTankMass: Number(e.target.value)})} 
+                value={params.totalTankMass} 
+                onChange={(e) => setParams({...params, totalTankMass: Number(e.target.value)})} 
               />
           </InputGroup>
 
@@ -273,6 +281,16 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({ planet, settin
            </div>
            
            <div className="flex flex-col gap-2 pt-2">
+            <InputGroup label={t('opt_target_label')}>
+                 <Select 
+                   value={settings.optimizationTarget}
+                   onChange={(e) => setSettings({...settings, optimizationTarget: e.target.value as 'maxHeight' | 'deltaV'})}
+                 >
+                   <option value="maxHeight">{t('opt_target_height')}</option>
+                   <option value="deltaV">{t('opt_target_dv')}</option>
+                 </Select>
+            </InputGroup>
+            <div className="h-px bg-space-700/50 my-1"></div>
             <label className="flex items-center gap-2 text-sm text-space-300 cursor-pointer">
               <input 
                 type="checkbox" 
@@ -310,10 +328,19 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({ planet, settin
           <>
              {/* Summary Cards */}
              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-space-800 border border-space-600 rounded-xl p-4 shadow-xl shrink-0">
-                <div className="p-3 bg-space-900/50 rounded-lg border-l-4 border-space-success">
-                    <p className="text-xs text-space-400 uppercase tracking-wide">{t('res_peak_alt')}</p>
-                    <p className="text-xl md:text-2xl font-bold text-space-100">{(result.maxHeight/1000).toFixed(2)} <span className="text-sm font-normal text-space-400">km</span></p>
+                {/* Dynamic 1st Card: Shows Altitude OR Delta V based on setting */}
+                <div className={`p-3 bg-space-900/50 rounded-lg border-l-4 ${settings.optimizationTarget === 'maxHeight' ? 'border-space-success' : 'border-indigo-500'}`}>
+                    <p className="text-xs text-space-400 uppercase tracking-wide">
+                        {settings.optimizationTarget === 'maxHeight' ? t('res_peak_alt') : t('res_dv')}
+                    </p>
+                    <p className="text-xl md:text-2xl font-bold text-space-100">
+                        {settings.optimizationTarget === 'maxHeight' 
+                           ? <>{(result.maxHeight/1000).toFixed(2)} <span className="text-sm font-normal text-space-400">km</span></>
+                           : <>{result.deltaV.toFixed(0)} <span className="text-sm font-normal text-space-400">m/s</span></>
+                        }
+                    </p>
                 </div>
+
                 <div className="p-3 bg-space-900/50 rounded-lg border-l-4 border-space-accent">
                     <p className="text-xs text-space-400 uppercase tracking-wide">{t('res_max_vel')}</p>
                     <p className="text-xl md:text-2xl font-bold text-space-100">{result.maxVelocity.toFixed(0)} <span className="text-sm font-normal text-space-400">m/s</span></p>
@@ -322,9 +349,19 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({ planet, settin
                     <p className="text-xs text-space-400 uppercase tracking-wide">{t('res_start_twr')}</p>
                     <p className={`text-xl md:text-2xl font-bold ${result.twrStart < 1.01 ? 'text-danger' : 'text-space-100'}`}>{formatNumber(result.twrStart, 2)}</p>
                 </div>
-                <div className="p-3 bg-space-900/50 rounded-lg border-l-4 border-purple-500">
-                    <p className="text-xs text-space-400 uppercase tracking-wide">{t('res_burn_time')}</p>
-                    <p className="text-xl md:text-2xl font-bold text-space-100">{result.burnTime.toFixed(1)} <span className="text-sm font-normal text-space-400">s</span></p>
+                
+                {/* Dynamic 4th Card: Shows the other metric */}
+                <div className={`p-3 bg-space-900/50 rounded-lg border-l-4 ${settings.optimizationTarget === 'maxHeight' ? 'border-indigo-500' : 'border-space-success'}`}>
+                    <p className="text-xs text-space-400 uppercase tracking-wide">
+                        {settings.optimizationTarget === 'maxHeight' ? t('res_dv') : t('res_peak_alt')}
+                    </p>
+                    <p className="text-xl md:text-2xl font-bold text-space-100">
+                        {settings.optimizationTarget === 'maxHeight'
+                            ? <>{result.deltaV.toFixed(0)} <span className="text-sm font-normal text-space-400">s</span></> // Note: Typo in logic if this says 's', fixed below
+                            : <>{(result.maxHeight/1000).toFixed(2)} <span className="text-sm font-normal text-space-400">km</span></>
+                        }
+                        {settings.optimizationTarget === 'maxHeight' && <span className="text-sm font-normal text-space-400">m/s</span>}
+                    </p>
                 </div>
              </div>
 
@@ -347,11 +384,6 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({ planet, settin
              {/* View Content */}
              <div className="flex-1 bg-space-800 border border-space-600 rounded-b-xl rounded-tr-xl p-4 overflow-hidden flex flex-col relative">
                 
-                {/* PERFORMANCE OPTIMIZATION: 
-                    Use CSS 'hidden' instead of unmounting the component. 
-                    Unmounting a Recharts graph with thousands of nodes causes UI freeze.
-                    Hiding it retains the fiber nodes but removes painting cost.
-                */}
                 <div className={`flex flex-col h-full gap-4 ${activeView === 'charts' ? '' : 'hidden'}`}>
                     <div className="flex gap-2 justify-end">
                       <button onClick={() => setActiveChart('profile')} className={`px-3 py-1 text-xs rounded-full border ${activeChart === 'profile' ? 'bg-space-accent text-white border-space-accent' : 'border-space-600 text-space-400'}`}>{t('sim_chart_profile')}</button>

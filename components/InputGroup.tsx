@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React, { useState, useEffect } from 'react';
 
 interface InputGroupProps {
   label: string;
@@ -25,12 +26,38 @@ interface NumberInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   unit?: string;
 }
 
-export const NumberInput: React.FC<NumberInputProps> = ({ unit, className, ...props }) => {
+export const NumberInput: React.FC<NumberInputProps> = ({ unit, className, value, onChange, ...props }) => {
+  // 本地状态：允许保留用户的原始输入字符串（例如 "", "0.", "05" 等）
+  // 避免父组件 Number() 转换后回传导致输入框内容跳变
+  const [localValue, setLocalValue] = useState<string>(value !== undefined ? String(value) : '');
+
+  useEffect(() => {
+    // 只有当父组件传入的值与当前本地值的数值含义不一致时，才同步。
+    // 例如：父组件传回 0，但本地是 "" (Number("") === 0)，此时不应该同步为 "0"，
+    // 否则用户刚删除完内容，输入框立刻就变成了 0。
+    setLocalValue(prev => {
+      const currentNum = prev === '' ? 0 : Number(prev);
+      if (value !== undefined && Number(value) !== currentNum) {
+        return String(value);
+      }
+      return prev;
+    });
+  }, [value]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocalValue(e.target.value);
+    if (onChange) {
+      onChange(e);
+    }
+  };
+
   return (
     <div className="relative">
       <input
         type="number"
         className={`w-full bg-space-800 border border-space-600 rounded-md px-3 py-2 text-sm text-space-100 focus:outline-none focus:ring-2 focus:ring-space-accent focus:border-transparent transition-all ${className}`}
+        value={localValue}
+        onChange={handleChange}
         {...props}
       />
       {unit && (

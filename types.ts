@@ -25,19 +25,28 @@ export interface SimulationSettings {
   enableDrag: boolean;
   timeStep: number; // seconds
   maxTime: number; // seconds
+  optimizationTarget: 'maxHeight' | 'deltaV'; // New optimization target
 }
 
 // Optimization Input Parameters
 export interface RocketParams {
   engineCount: number;
   engine: Engine; // Selected engine template
-  payloadMass: number; // Tonnes (Capsule + Parachute + Fairing etc)
+  payloadMass: number; // Tonnes (Standard fixed payload, or default)
   tankDryWetRatio: number; // e.g. 0.1 means 10% tank mass, 90% fuel
   
+  // Fixed Tank Mass (for Payload Sweep mode)
+  totalTankMass: number; // Tonnes
+
   // Sweep range for Fuel Tank Total Mass (Tank + Fuel)
   minTotalTankMass: number; // Tonnes
   maxTotalTankMass: number; // Tonnes
   stepTotalTankMass: number; // Tonnes
+
+  // Sweep range for Payload Mass
+  minPayloadMass: number; // Tonnes
+  maxPayloadMass: number; // Tonnes
+  stepPayloadMass: number; // Tonnes
 }
 
 // Flight Telemetry Point
@@ -59,7 +68,8 @@ export interface TelemetryPoint {
 
 // Single Simulation Result Point
 export interface SimulationResult {
-  tankMass: number; // Tonnes (The independent variable: Fuel + Tank Structure)
+  tankMass: number; // Tonnes
+  payloadMass: number; // Tonnes (Added for Payload Sweep)
   totalMassStart: number; // Tonnes (Rocket Total Mass)
   fuelMass: number; // Tonnes
   dryMass: number; // Tonnes

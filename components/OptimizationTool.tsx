@@ -1,9 +1,11 @@
 
+
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot, Area, ComposedChart, ReferenceLine
 } from 'recharts';
-import { Settings, RefreshCw, Info, FileText, X, Zap, Gauge, Scale } from 'lucide-react';
+import { Settings, RefreshCw, Info, FileText, X, Zap, Gauge, Scale, Target } from 'lucide-react';
 import { RocketParams, SimulationSettings, SimulationResult, Planet, TelemetryPoint } from '../types';
 import { runOptimization, simulateLaunch } from '../services/physics';
 import { InputGroup, NumberInput, Select, Slider } from './InputGroup';
@@ -20,26 +22,39 @@ interface OptimizationToolProps {
 const formatNumber = (num: number, decimals = 1) => num.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 const formatKm = (m: number) => m >= 1000 ? `${formatNumber(m/1000, 2)} km` : `${formatNumber(m, 0)} m`;
 
-const STORAGE_KEY_PARAMS = 'sfs_opt_params';
+const STORAGE_KEY_PARAMS = 'sfs_opt_params_v3'; // Incremented key for v3 structure
 const ROW_HEIGHT = 40; // px
+
+type OptimizationMode = 'payload' | 'fuel';
 
 export const OptimizationTool: React.FC<OptimizationToolProps> = ({ planet, settings, setSettings }) => {
   const { t } = useLanguage();
   const { theme } = useTheme();
   const { engines } = useGameData();
   
+  // Local UI State
+  const [optMode, setOptMode] = useState<OptimizationMode>('payload'); // 'payload' = fix fuel, sweep payload
+
   // Initialize state from localStorage or defaults
   const [params, setParams] = useState<RocketParams>(() => {
     try {
       const savedJson = localStorage.getItem(STORAGE_KEY_PARAMS);
       if (savedJson) {
         const saved = JSON.parse(savedJson);
-        // Ensure the engine object is valid and matches current engine list if possible
-        // But since engine data can be custom, we just check if it has ID.
-        // We do NOT overwrite it with list data immediately to respect saved state unless ID matches.
+        // Basic migration validation
         if (saved.engine && saved.engine.id) {
-           // We'll update the engine object reference in the effect below to keep it in sync with global configs
+           // We'll update the engine object reference in the effect below
         }
+        // Defaults for new fields if missing
+        if (saved.totalTankMass === undefined) saved.totalTankMass = 30;
+        if (saved.minPayloadMass === undefined) saved.minPayloadMass = 1;
+        if (saved.maxPayloadMass === undefined) saved.maxPayloadMass = 20;
+        if (saved.stepPayloadMass === undefined) saved.stepPayloadMass = 1;
+        
+        if (saved.minTotalTankMass === undefined) saved.minTotalTankMass = 10;
+        if (saved.maxTotalTankMass === undefined) saved.maxTotalTankMass = 50;
+        if (saved.stepTotalTankMass === undefined) saved.stepTotalTankMass = 2;
+        
         return saved;
       }
     } catch (e) {
@@ -48,11 +63,19 @@ export const OptimizationTool: React.FC<OptimizationToolProps> = ({ planet, sett
     return {
       engineCount: 1,
       engine: engines[0], 
-      payloadMass: 10,
-      tankDryWetRatio: 0.1, // 10% dry, 90% fuel
+      payloadMass: 5, // Fixed Payload (for Fuel Sweep Mode)
+      totalTankMass: 30, // Fixed Tank Mass (for Payload Sweep Mode)
+      tankDryWetRatio: 0.1, 
+      
+      // Sweep Config: Payload
+      minPayloadMass: 1,
+      maxPayloadMass: 20,
+      stepPayloadMass: 0.5,
+
+      // Sweep Config: Fuel
       minTotalTankMass: 5,
-      maxTotalTankMass: 100,
-      stepTotalTankMass: 2,
+      maxTotalTankMass: 50,
+      stepTotalTankMass: 2.5,
     };
   });
 
@@ -62,7 +85,6 @@ export const OptimizationTool: React.FC<OptimizationToolProps> = ({ planet, sett
      if (currentEngine && (currentEngine.thrust !== params.engine.thrust || currentEngine.isp !== params.engine.isp || currentEngine.mass !== params.engine.mass)) {
         setParams(p => ({ ...p, engine: currentEngine }));
      }
-     // If current engine ID doesn't exist anymore (removed?), default to first
      if (!currentEngine && engines.length > 0) {
         setParams(p => ({ ...p, engine: engines[0] }));
      }
@@ -73,7 +95,7 @@ export const OptimizationTool: React.FC<OptimizationToolProps> = ({ planet, sett
   const [isCalculating, setIsCalculating] = useState(false);
   
   // Interaction State
-  const [selectedTankMass, setSelectedTankMass] = useState<number | null>(null);
+  const [selectedXValue, setSelectedXValue] = useState<number | null>(null);
   
   // Log Modal State
   const [showLog, setShowLog] = useState(false);
@@ -92,11 +114,12 @@ export const OptimizationTool: React.FC<OptimizationToolProps> = ({ planet, sett
   // Run simulation
   const handleCalculate = () => {
     setIsCalculating(true);
-    // Reset selection when recalculating to avoid stale data pointers
-    setSelectedTankMass(null);
+    // Reset selection when recalculating
+    setSelectedXValue(null);
     
     setTimeout(() => {
-      const data = runOptimization(params, planet, settings);
+      // Pass the current mode to runOptimization
+      const data = runOptimization(optMode, params, planet, settings);
       setResults(data);
       setIsCalculating(false);
     }, 50);
@@ -104,23 +127,40 @@ export const OptimizationTool: React.FC<OptimizationToolProps> = ({ planet, sett
 
   const bestResult = useMemo(() => {
     if (results.length === 0) return null;
-    return results.reduce((prev, current) => (current.maxHeight > prev.maxHeight ? current : prev));
-  }, [results]);
+    return results.reduce((prev, current) => {
+       const prevVal = settings.optimizationTarget === 'maxHeight' ? prev.maxHeight : prev.deltaV;
+       const currVal = settings.optimizationTarget === 'maxHeight' ? current.maxHeight : current.deltaV;
+       return currVal > prevVal ? current : prev;
+    });
+  }, [results, settings.optimizationTarget]);
 
-  // Determine which result to display in summary card (Selected > Best > Null)
+  // Determine which result to display in summary card
   const displayedResult = useMemo(() => {
-    if (selectedTankMass !== null) {
-      const found = results.find(r => r.tankMass === selectedTankMass);
-      if (found) return found;
+    if (selectedXValue !== null) {
+      // Check which variable we are matching against based on mode
+      if (optMode === 'payload') {
+         const found = results.find(r => Math.abs(r.payloadMass - selectedXValue) < 0.001);
+         if (found) return found;
+      } else {
+         const found = results.find(r => Math.abs(r.tankMass - selectedXValue) < 0.001);
+         if (found) return found;
+      }
     }
     return bestResult;
-  }, [selectedTankMass, results, bestResult]);
+  }, [selectedXValue, results, bestResult, optMode]);
 
   const handleShowLog = () => {
     if (!displayedResult) return;
     
     // Run a single high-precision simulation for the displayed result
-    const result = simulateLaunch(displayedResult.tankMass, params, planet, settings, 1.0);
+    const result = simulateLaunch(
+      displayedResult.tankMass,
+      params, 
+      planet, 
+      settings, 
+      1.0, 
+      displayedResult.payloadMass 
+    );
     
     if (result.telemetry) {
       setLogData(result.telemetry);
@@ -148,7 +188,6 @@ export const OptimizationTool: React.FC<OptimizationToolProps> = ({ planet, sett
   const virtualTableData = useMemo(() => {
     const totalRows = logData.length;
     const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT));
-    // Render enough rows to fill container + buffer
     const visibleCount = Math.ceil(containerHeight / ROW_HEIGHT);
     const endIndex = Math.min(totalRows, startIndex + visibleCount + 5); 
     
@@ -166,7 +205,7 @@ export const OptimizationTool: React.FC<OptimizationToolProps> = ({ planet, sett
     }, 300);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params, planet, settings.gravityModel, settings.enableDrag, settings.timeStep]);
+  }, [params, planet, settings.gravityModel, settings.enableDrag, settings.timeStep, settings.optimizationTarget, optMode]);
 
   const chartData = useMemo(() => {
     return results.map(r => ({
@@ -179,9 +218,23 @@ export const OptimizationTool: React.FC<OptimizationToolProps> = ({ planet, sett
   const onChartClick = (data: any) => {
     if (data && data.activePayload && data.activePayload.length > 0) {
       const point = data.activePayload[0].payload;
-      setSelectedTankMass(point.tankMass);
+      // Depending on mode, the X axis is different
+      if (optMode === 'payload') {
+         setSelectedXValue(point.payloadMass);
+      } else {
+         setSelectedXValue(point.tankMass);
+      }
     }
   };
+
+  // Dynamic Label for Chart X Axis
+  const xAxisKey = optMode === 'payload' ? 'payloadMass' : 'tankMass';
+  const xAxisLabel = optMode === 'payload' ? t('chart_x_payload') : t('chart_x');
+  
+  // Dynamic Y Axis based on Optimization Target
+  const primaryDataKey = settings.optimizationTarget === 'maxHeight' ? 'maxHeightKm' : 'deltaV';
+  const primaryColor = settings.optimizationTarget === 'maxHeight' ? '#34D399' : '#818CF8';
+  const primaryYLabel = settings.optimizationTarget === 'maxHeight' ? t('chart_y') : t('chart_y_dv');
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:h-full relative">
@@ -198,6 +251,22 @@ export const OptimizationTool: React.FC<OptimizationToolProps> = ({ planet, sett
       {/* Sidebar Controls */}
       <div className="lg:col-span-4 xl:col-span-3 space-y-6 lg:overflow-y-auto pr-2 custom-scrollbar lg:max-h-[calc(100vh-100px)]">
         
+        {/* Mode Switcher */}
+        <section className="bg-space-800 border border-space-600 rounded-lg p-1 flex">
+           <button 
+             onClick={() => setOptMode('payload')}
+             className={`flex-1 py-2 text-xs font-bold rounded transition-colors ${optMode === 'payload' ? 'bg-space-700 text-space-100 shadow' : 'text-space-500 hover:text-space-300'}`}
+           >
+             {t('opt_mode_payload')}
+           </button>
+           <button 
+             onClick={() => setOptMode('fuel')}
+             className={`flex-1 py-2 text-xs font-bold rounded transition-colors ${optMode === 'fuel' ? 'bg-space-700 text-space-100 shadow' : 'text-space-500 hover:text-space-300'}`}
+           >
+             {t('opt_mode_fuel')}
+           </button>
+        </section>
+
         {/* Rocket Configuration */}
         <section className="bg-space-800/50 border border-space-700 rounded-lg p-4 space-y-4">
           <div className="flex items-center gap-2 text-space-accent mb-2">
@@ -254,14 +323,26 @@ export const OptimizationTool: React.FC<OptimizationToolProps> = ({ planet, sett
             </InputGroup>
           </div>
 
-          <InputGroup label={t('opt_payload')} subLabel={t('opt_payload_sub')} error={params.payloadMass < 0 ? t('err_neg') : undefined}>
-            <NumberInput 
-              unit="t" 
-              step={0.1} 
-              value={params.payloadMass} 
-              onChange={(e) => setParams({...params, payloadMass: Number(e.target.value)})} 
-            />
-          </InputGroup>
+          {/* Conditional Inputs based on Mode */}
+          {optMode === 'payload' ? (
+             <InputGroup label={t('opt_fixed_fuel')} subLabel={t('opt_fixed_fuel_sub')}>
+                <NumberInput 
+                  unit="t" 
+                  step={0.5} 
+                  value={params.totalTankMass} 
+                  onChange={(e) => setParams({...params, totalTankMass: Number(e.target.value)})} 
+                />
+            </InputGroup>
+          ) : (
+            <InputGroup label={t('opt_payload')} subLabel={t('opt_payload_sub')}>
+               <NumberInput 
+                  unit="t" 
+                  step={0.5} 
+                  value={params.payloadMass} 
+                  onChange={(e) => setParams({...params, payloadMass: Number(e.target.value)})} 
+                />
+            </InputGroup>
+          )}
 
           <InputGroup label={t('opt_tank_ratio')} subLabel={t('opt_tank_ratio_sub')}>
             <div className="flex items-center gap-3">
@@ -275,26 +356,44 @@ export const OptimizationTool: React.FC<OptimizationToolProps> = ({ planet, sett
           </InputGroup>
         </section>
 
-        {/* Sweep Settings */}
+        {/* Sweep Settings (Dynamic) */}
         <section className="bg-space-800/50 border border-space-700 rounded-lg p-4 space-y-4">
           <div className="flex items-center gap-2 text-space-success mb-2">
             <RefreshCw size={18} />
-            <h3 className="font-semibold uppercase tracking-wider text-sm">{t('opt_config_sweep')}</h3>
+            <h3 className="font-semibold uppercase tracking-wider text-sm">
+              {optMode === 'payload' ? t('opt_config_payload_sweep') : t('opt_config_sweep')}
+            </h3>
           </div>
           
           <div className="grid grid-cols-2 gap-4">
-            <InputGroup label={t('opt_min_mass')} subLabel={t('opt_min_mass_sub')}>
+            <InputGroup 
+               label={optMode === 'payload' ? t('opt_min_payload') : t('opt_min_mass')} 
+               subLabel={optMode === 'payload' ? t('opt_min_payload_sub') : t('opt_min_mass_sub')}
+            >
               <NumberInput 
                 unit="t" 
-                value={params.minTotalTankMass} 
-                onChange={(e) => setParams({...params, minTotalTankMass: Number(e.target.value)})} 
+                value={optMode === 'payload' ? params.minPayloadMass : params.minTotalTankMass} 
+                onChange={(e) => {
+                    const val = Number(e.target.value);
+                    optMode === 'payload' 
+                      ? setParams({...params, minPayloadMass: val})
+                      : setParams({...params, minTotalTankMass: val})
+                }} 
               />
             </InputGroup>
-            <InputGroup label={t('opt_max_mass')} subLabel={t('opt_max_mass_sub')}>
+            <InputGroup 
+               label={optMode === 'payload' ? t('opt_max_payload') : t('opt_max_mass')}
+               subLabel={optMode === 'payload' ? t('opt_max_payload_sub') : t('opt_max_mass_sub')}
+            >
               <NumberInput 
                 unit="t" 
-                value={params.maxTotalTankMass} 
-                onChange={(e) => setParams({...params, maxTotalTankMass: Number(e.target.value)})} 
+                value={optMode === 'payload' ? params.maxPayloadMass : params.maxTotalTankMass} 
+                 onChange={(e) => {
+                    const val = Number(e.target.value);
+                    optMode === 'payload' 
+                      ? setParams({...params, maxPayloadMass: val})
+                      : setParams({...params, maxTotalTankMass: val})
+                }} 
               />
             </InputGroup>
           </div>
@@ -302,8 +401,13 @@ export const OptimizationTool: React.FC<OptimizationToolProps> = ({ planet, sett
              <NumberInput 
                 unit="t" 
                 step={0.1}
-                value={params.stepTotalTankMass} 
-                onChange={(e) => setParams({...params, stepTotalTankMass: Number(e.target.value)})} 
+                value={optMode === 'payload' ? params.stepPayloadMass : params.stepTotalTankMass} 
+                 onChange={(e) => {
+                    const val = Number(e.target.value);
+                    optMode === 'payload' 
+                      ? setParams({...params, stepPayloadMass: val})
+                      : setParams({...params, stepTotalTankMass: val})
+                }} 
               />
           </InputGroup>
         </section>
@@ -315,6 +419,16 @@ export const OptimizationTool: React.FC<OptimizationToolProps> = ({ planet, sett
             <h3 className="font-semibold uppercase tracking-wider text-sm">{t('opt_config_physics')}</h3>
           </div>
           <div className="flex flex-col gap-3">
+             <InputGroup label={t('opt_target_label')}>
+                 <Select 
+                   value={settings.optimizationTarget}
+                   onChange={(e) => setSettings({...settings, optimizationTarget: e.target.value as 'maxHeight' | 'deltaV'})}
+                 >
+                   <option value="maxHeight">{t('opt_target_height')}</option>
+                   <option value="deltaV">{t('opt_target_dv')}</option>
+                 </Select>
+            </InputGroup>
+            <div className="h-px bg-space-700/50 my-1"></div>
             <label className="flex items-center gap-2 text-sm text-space-300 cursor-pointer">
               <input 
                 type="checkbox" 
@@ -353,27 +467,57 @@ export const OptimizationTool: React.FC<OptimizationToolProps> = ({ planet, sett
         {displayedResult ? (
           <div className="bg-space-800 border border-space-600 rounded-xl p-4 shadow-xl">
              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                <div className="p-3 bg-space-900/50 rounded-lg border-l-4 border-space-success">
-                    <p className="text-xs text-space-400 uppercase tracking-wide">{t('res_peak_alt')}</p>
-                    <p className="text-xl md:text-2xl font-bold text-space-100">{formatKm(displayedResult.maxHeight)}</p>
+                {/* Primary Metric Card (Swaps based on target) */}
+                <div className={`p-3 bg-space-900/50 rounded-lg border-l-4 ${settings.optimizationTarget === 'maxHeight' ? 'border-space-success' : 'border-indigo-500'}`}>
+                    <p className="text-xs text-space-400 uppercase tracking-wide">
+                       {settings.optimizationTarget === 'maxHeight' ? t('res_peak_alt') : t('res_dv')}
+                    </p>
+                    <p className="text-xl md:text-2xl font-bold text-space-100">
+                       {settings.optimizationTarget === 'maxHeight' 
+                          ? formatKm(displayedResult.maxHeight)
+                          : <>{formatNumber(displayedResult.deltaV, 0)} <span className="text-sm font-normal text-space-400">m/s</span></>
+                       }
+                    </p>
                     <p className="text-xs text-space-500">
-                      {selectedTankMass !== null ? t('res_sel_outcome') : t('res_opt_outcome')}
+                      {selectedXValue !== null ? t('res_sel_outcome') : t('res_opt_outcome')}
                     </p>
                 </div>
-                <div className="p-3 bg-space-900/50 rounded-lg border-l-4 border-space-accent">
-                    <p className="text-xs text-space-400 uppercase tracking-wide">{t('res_opt_fuel')}</p>
-                    <p className="text-xl md:text-2xl font-bold text-space-100">{formatNumber(displayedResult.tankMass, 1)} <span className="text-sm font-normal text-space-400">t</span></p>
-                    <p className="text-xs text-space-500">{t('res_tank_fuel')}</p>
-                </div>
+                
+                {/* Dynamic 2nd card based on mode */}
+                {optMode === 'payload' ? (
+                   <div className="p-3 bg-space-900/50 rounded-lg border-l-4 border-space-accent">
+                      <p className="text-xs text-space-400 uppercase tracking-wide">{t('opt_payload')}</p>
+                      <p className="text-xl md:text-2xl font-bold text-space-100">{formatNumber(displayedResult.payloadMass, 1)} <span className="text-sm font-normal text-space-400">t</span></p>
+                      <p className="text-xs text-space-500">{t('res_sel_payload')}</p>
+                   </div>
+                ) : (
+                   <div className="p-3 bg-space-900/50 rounded-lg border-l-4 border-space-accent">
+                      <p className="text-xs text-space-400 uppercase tracking-wide">{t('opt_fixed_fuel')}</p>
+                      <p className="text-xl md:text-2xl font-bold text-space-100">{formatNumber(displayedResult.tankMass, 1)} <span className="text-sm font-normal text-space-400">t</span></p>
+                      <p className="text-xs text-space-500">{t('res_sel_fuel')}</p>
+                   </div>
+                )}
+                
                   <div className="p-3 bg-space-900/50 rounded-lg border-l-4 border-space-warning">
                     <p className="text-xs text-space-400 uppercase tracking-wide">{t('res_start_twr')}</p>
                     <p className={`text-xl md:text-2xl font-bold ${displayedResult.twrStart < 1.01 ? 'text-danger' : 'text-space-100'}`}>{formatNumber(displayedResult.twrStart, 2)}</p>
                     <p className="text-xs text-space-500">{t('res_surf_tw')}</p>
                 </div>
-                <div className="p-3 bg-space-900/50 rounded-lg border-l-4 border-indigo-500">
-                    <p className="text-xs text-space-400 uppercase tracking-wide">{t('res_dv')}</p>
-                    <p className="text-xl md:text-2xl font-bold text-space-100">{formatNumber(displayedResult.deltaV, 0)} <span className="text-sm font-normal text-space-400">m/s</span></p>
-                    <p className="text-xs text-space-500">{t('res_theo_max')}</p>
+                
+                {/* Secondary Metric Card */}
+                <div className={`p-3 bg-space-900/50 rounded-lg border-l-4 ${settings.optimizationTarget === 'maxHeight' ? 'border-indigo-500' : 'border-space-success'}`}>
+                    <p className="text-xs text-space-400 uppercase tracking-wide">
+                      {settings.optimizationTarget === 'maxHeight' ? t('res_dv') : t('res_peak_alt')}
+                    </p>
+                    <p className="text-xl md:text-2xl font-bold text-space-100">
+                      {settings.optimizationTarget === 'maxHeight'
+                         ? <>{formatNumber(displayedResult.deltaV, 0)} <span className="text-sm font-normal text-space-400">m/s</span></>
+                         : formatKm(displayedResult.maxHeight)
+                      }
+                    </p>
+                    <p className="text-xs text-space-500">
+                      {settings.optimizationTarget === 'maxHeight' ? t('res_theo_max') : t('res_opt_outcome')}
+                    </p>
                 </div>
              </div>
              
@@ -395,7 +539,13 @@ export const OptimizationTool: React.FC<OptimizationToolProps> = ({ planet, sett
 
         {/* Chart */}
         <div className="flex-1 bg-space-800 border border-space-600 rounded-xl p-4 min-h-[400px] relative">
-           <h3 className="text-sm font-medium text-space-400 mb-4 absolute top-4 left-4 z-10">{t('chart_title')}</h3>
+           <div className="absolute top-4 left-4 z-10 flex flex-col gap-1">
+             <h3 className="text-sm font-medium text-space-400">{t('chart_title')}</h3>
+             <span className="text-xs text-space-500 flex items-center gap-1">
+               <Target size={10} /> {settings.optimizationTarget === 'maxHeight' ? t('opt_target_height') : t('opt_target_dv')}
+             </span>
+           </div>
+
            <ResponsiveContainer width="100%" height="100%">
              <ComposedChart 
                 data={chartData} 
@@ -403,26 +553,26 @@ export const OptimizationTool: React.FC<OptimizationToolProps> = ({ planet, sett
                 onClick={onChartClick}
               >
                 <defs>
-                  <linearGradient id="colorHeight" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#34D399" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#34D399" stopOpacity={0}/>
+                  <linearGradient id="colorPrimary" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={primaryColor} stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor={primaryColor} stopOpacity={0}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#2E3652' : '#E2E8F0'} vertical={false} />
                 <XAxis 
-                  dataKey="tankMass" 
+                  dataKey={xAxisKey}
                   stroke="#94A3B8" 
                   fontSize={12}
                   type="number"
                   domain={['dataMin', 'dataMax']}
-                  label={{ value: t('chart_x'), position: 'insideBottom', offset: -10, fill: '#64748B' }}
+                  label={{ value: xAxisLabel, position: 'insideBottom', offset: -10, fill: '#64748B' }}
                 />
                 <YAxis 
                   yAxisId="left" 
                   stroke="#94A3B8" 
                   fontSize={12}
                   tickFormatter={(val) => (val).toFixed(0)}
-                  label={{ value: t('chart_y'), angle: -90, position: 'insideLeft', fill: '#64748B' }}
+                  label={{ value: primaryYLabel, angle: -90, position: 'insideLeft', fill: '#64748B' }}
                 />
                  <YAxis 
                   yAxisId="right" 
@@ -445,21 +595,24 @@ export const OptimizationTool: React.FC<OptimizationToolProps> = ({ planet, sett
                   itemStyle={{ color: 'var(--color-space-100)' }}
                   formatter={(value: number, name: string) => {
                     if (name === 'maxHeightKm') return [`${value.toFixed(2)} km`, t('res_peak_alt')];
+                    if (name === 'deltaV') return [`${value.toFixed(0)} m/s`, t('res_dv')];
                     if (name === 'twr') return [value.toFixed(2), t('res_start_twr')];
                     if (name === 'totalMassStart') return [value.toFixed(1), t('ms_total_mass')];
+                    if (name === 'tankMass') return [value.toFixed(1) + ' t', t('opt_fixed_fuel')];
+                    if (name === 'payloadMass') return [value.toFixed(1) + ' t', t('opt_payload')];
                     return [value, name];
                   }}
-                  labelFormatter={(label) => `${t('res_tank_fuel')}: ${label} t`}
+                  labelFormatter={(label) => `${xAxisLabel}: ${label} t`}
                 />
                 <Area 
                   yAxisId="left"
                   type="monotone" 
-                  dataKey="maxHeightKm" 
-                  stroke="#34D399" 
+                  dataKey={primaryDataKey} 
+                  stroke={primaryColor} 
                   fillOpacity={1} 
-                  fill="url(#colorHeight)" 
+                  fill="url(#colorPrimary)" 
                   strokeWidth={3}
-                  activeDot={{ r: 6, fill: '#34D399', stroke: '#fff' }}
+                  activeDot={{ r: 6, fill: primaryColor, stroke: '#fff' }}
                 />
                 <Line
                   yAxisId="right"
@@ -475,8 +628,8 @@ export const OptimizationTool: React.FC<OptimizationToolProps> = ({ planet, sett
                 {bestResult && (
                   <ReferenceDot 
                     yAxisId="left" 
-                    x={bestResult.tankMass}
-                    y={bestResult.maxHeight / 1000} 
+                    x={bestResult[xAxisKey]}
+                    y={settings.optimizationTarget === 'maxHeight' ? bestResult.maxHeight / 1000 : bestResult.deltaV} 
                     r={6} 
                     fill="#F87171" 
                     stroke="#fff"
@@ -484,8 +637,8 @@ export const OptimizationTool: React.FC<OptimizationToolProps> = ({ planet, sett
                 )}
                 
                 {/* Highlight Selected Result */}
-                {selectedTankMass !== null && (
-                   <ReferenceLine x={selectedTankMass} stroke="#38BDF8" strokeDasharray="3 3" />
+                {selectedXValue !== null && (
+                   <ReferenceLine x={selectedXValue} stroke="#38BDF8" strokeDasharray="3 3" />
                 )}
              </ComposedChart>
            </ResponsiveContainer>
@@ -504,7 +657,7 @@ export const OptimizationTool: React.FC<OptimizationToolProps> = ({ planet, sett
               <div>
                   <h3 className="text-xl font-bold text-space-100 flex items-center gap-2">
                     <FileText size={20} className="text-space-accent" />
-                    {t('log_title_dynamic', { mass: displayedResult.tankMass.toFixed(1) || '0' })}
+                    {t('log_title_dynamic', { mass: displayedResult.payloadMass.toFixed(1) || '0' })}
                   </h3>
                   <p className="text-xs text-space-400 mt-1 ml-7">
                     {t('log_config_summary', { 

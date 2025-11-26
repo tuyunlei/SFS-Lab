@@ -54,7 +54,15 @@ export const translations = {
 
     // Optimization Tool
     opt_title: 'Single Stage Optimizer',
-    opt_desc: 'Calculate the optimal fuel configuration for max altitude on {planet}.',
+    opt_desc: 'Analyze rocket performance by sweeping Payload or Fuel variables.',
+    opt_mode_label: 'Optimization Mode',
+    opt_mode_payload: 'Fix Fuel (Sweep Payload)',
+    opt_mode_fuel: 'Fix Payload (Sweep Fuel)',
+    
+    opt_target_label: 'Optimization Target',
+    opt_target_height: 'Max Altitude',
+    opt_target_dv: 'Delta V',
+
     opt_config_rocket: 'Vessel Configuration',
     opt_engine_model: 'Propulsion System',
     opt_engine_count: 'Count',
@@ -63,6 +71,14 @@ export const translations = {
     opt_tank_ratio: 'Tank Dry Ratio',
     opt_tank_ratio_sub: 'Structure Mass / Total Mass',
     
+    opt_fixed_fuel: 'Total Tank Mass',
+    opt_fixed_fuel_sub: 'Fuel + Structure Mass',
+    opt_config_payload_sweep: 'Payload Analysis Range',
+    opt_min_payload: 'Min Payload',
+    opt_min_payload_sub: 'Capsule + Cargo',
+    opt_max_payload: 'Max Payload',
+    opt_max_payload_sub: 'Capsule + Cargo',
+
     opt_config_sweep: 'Fuel Analysis Range',
     opt_min_mass: 'Min Total Mass',
     opt_min_mass_sub: 'Fuel + Tank Structure',
@@ -83,14 +99,14 @@ export const translations = {
     pf_config_payload_sweep: 'Payload Analysis Range',
     pf_min_payload: 'Min Payload',
     pf_max_payload: 'Max Payload',
-    pf_heatmap_title: 'Performance Matrix (X: Payload, Y: Fuel, Color: Altitude)',
-    pf_legend_low: 'Low Alt',
-    pf_legend_high: 'Orbit/Peak',
+    pf_heatmap_title: 'Performance Matrix',
+    pf_legend_low: 'Low',
+    pf_legend_high: 'High',
     pf_axis_x: 'Payload Mass (t)',
     pf_axis_y: 'Fuel Tank Total Mass (t)',
     pf_global_max: 'Optimal Configuration Found',
-    pf_max_coord: '{height} km @ {payload}t Payload / {fuel}t Fuel',
-    pf_hover_info: 'Payload: {p}t | Fuel+Tank: {f}t | Apoapsis: {h}km',
+    pf_max_coord: '{value} @ {payload}t Payload / {fuel}t Fuel',
+    pf_hover_info: 'Payload: {p}t | Fuel+Tank: {f}t | Val: {v}',
 
     // Simulator Tool
     sim_title: 'Flight Simulator',
@@ -148,6 +164,8 @@ export const translations = {
     va_volc_model_label: 'Endpoint ID / Model',
     va_volc_ph_key: 'Enter Volcengine API Key',
     va_volc_ph_model: 'e.g. ep-2025...',
+    va_gemini_key_label: 'Gemini API Key',
+    va_gemini_ph_key: 'Enter Google Gemini API Key',
 
     // Batch Queue
     va_queue_title: 'Processing Queue',
@@ -168,6 +186,7 @@ export const translations = {
     res_sel_outcome: 'Selected Design',
     res_opt_fuel: 'Optimal Total Mass',
     res_sel_fuel: 'Selected Total Mass',
+    res_sel_payload: 'Selected Payload',
     res_tank_fuel: 'Fuel + Tank',
     res_start_twr: 'Liftoff TWR',
     res_surf_tw: 'Surface Thrust-to-Weight',
@@ -180,9 +199,11 @@ export const translations = {
     res_view_log: 'Open Flight Log',
     
     // Chart
-    chart_title: 'Altitude Performance Curve',
+    chart_title: 'Performance Analysis',
     chart_x: 'Fuel Tank Total Mass (t)',
+    chart_x_payload: 'Payload Mass (t)',
     chart_y: 'Peak Altitude (km)',
+    chart_y_dv: 'Delta V (m/s)',
     chart_y_right: 'TWR',
     chart_note: '* Simulation based on {gravity} gravity model with {step}s integration steps.',
     gravity_const: 'constant',
@@ -190,7 +211,7 @@ export const translations = {
 
     // Log
     log_title: 'Flight Telemetry Log',
-    log_title_dynamic: 'Telemetry - {mass}t Configuration',
+    log_title_dynamic: 'Telemetry - {mass}t Payload',
     log_config_summary: 'Launch Mass: {total}t • Dry: {dry}t • {engineCount}x {engine}',
     log_time: 'T+ (s)',
     log_height: 'Alt (m)',
@@ -273,19 +294,35 @@ export const translations = {
 
     // Optimization Tool
     opt_title: '单级火箭选型优化',
-    opt_desc: '计算在 {planet} 环境下，不同燃料配置对飞行高度的影响。',
+    opt_desc: '通过变量分析，寻找最佳的载荷或燃料配置方案。',
+    opt_mode_label: '优化目标模式',
+    opt_mode_payload: '固定燃料 (分析载荷)',
+    opt_mode_fuel: '固定载荷 (分析燃料)',
+
+    opt_target_label: '优化目标数据',
+    opt_target_height: '最高高度 (Max Height)',
+    opt_target_dv: 'Delta V (Δv)',
+
     opt_config_rocket: '飞船配置',
     opt_engine_model: '推进系统',
     opt_engine_count: '引擎数量',
-    opt_payload: '有效载荷',
+    opt_payload: '有效载荷 (固定)',
     opt_payload_sub: '指令舱、整流罩、对接扣等',
     opt_tank_ratio: '油箱干质比',
     opt_tank_ratio_sub: '干重 / (干重 + 燃料)',
+
+    opt_fixed_fuel: '油箱总重 (固定)',
+    opt_fixed_fuel_sub: '燃料 + 油箱结构质量',
+    opt_config_payload_sweep: '载荷分析范围 (变量)',
+    opt_min_payload: '最小载荷',
+    opt_min_payload_sub: '胶囊/货物',
+    opt_max_payload: '最大载荷',
+    opt_max_payload_sub: '胶囊/货物',
     
-    opt_config_sweep: '燃料分析范围',
-    opt_min_mass: '最小总重',
+    opt_config_sweep: '燃料分析范围 (变量)',
+    opt_min_mass: '最小油箱重',
     opt_min_mass_sub: '燃料 + 油箱结构',
-    opt_max_mass: '最大总重',
+    opt_max_mass: '最大油箱重',
     opt_max_mass_sub: '燃料 + 油箱结构',
     opt_step_size: '计算步长',
     opt_step_size_sub: '步长越小，曲线越平滑',
@@ -302,14 +339,14 @@ export const translations = {
     pf_config_payload_sweep: '载荷分析范围',
     pf_min_payload: '最小载荷',
     pf_max_payload: '最大载荷',
-    pf_heatmap_title: '性能矩阵热力图 (X:载荷, Y:燃料, 颜色:高度)',
-    pf_legend_low: '低高度',
-    pf_legend_high: '入轨/远地点',
+    pf_heatmap_title: '性能矩阵热力图',
+    pf_legend_low: '低',
+    pf_legend_high: '高',
     pf_axis_x: '有效载荷 (t)',
     pf_axis_y: '油箱总重 (t)',
     pf_global_max: '全域最优解',
-    pf_max_coord: '{height} km @ {payload}t 载荷 / {fuel}t 燃料',
-    pf_hover_info: '载荷: {p}t | 油箱: {f}t | 远地点: {h}km',
+    pf_max_coord: '{value} @ {payload}t 载荷 / {fuel}t 燃料',
+    pf_hover_info: '载荷: {p}t | 油箱: {f}t | 结果: {v}',
     
     // Simulator Tool
     sim_title: '高保真飞行模拟',
@@ -367,6 +404,8 @@ export const translations = {
     va_volc_model_label: '接入点 ID / 模型',
     va_volc_ph_key: '输入 API Key',
     va_volc_ph_model: '例如 ep-2025...',
+    va_gemini_key_label: 'Gemini API Key',
+    va_gemini_ph_key: '输入 Google Gemini API Key',
 
     // Batch Queue
     va_queue_title: '处理队列',
@@ -387,6 +426,7 @@ export const translations = {
     res_sel_outcome: '当前选中方案',
     res_opt_fuel: '最优起飞质量',
     res_sel_fuel: '选中起飞质量',
+    res_sel_payload: '选定载荷质量',
     res_tank_fuel: '燃料 + 油箱',
     res_start_twr: '起飞推重比 (TWR)',
     res_surf_tw: '表面推重比',
@@ -399,9 +439,11 @@ export const translations = {
     res_view_log: '📊 查看详细日志',
     
     // Chart
-    chart_title: '性能表现曲线 (高度 vs 燃料)',
+    chart_title: '性能表现曲线',
     chart_x: '油箱总重 (t)',
+    chart_x_payload: '有效载荷 (t)',
     chart_y: '最高高度 (km)',
+    chart_y_dv: 'Delta V (m/s)',
     chart_y_right: '推重比 (TWR)',
     chart_note: '* 基于 {gravity} 重力模型计算，积分步长 {step}秒。',
     gravity_const: '常数',
@@ -409,7 +451,7 @@ export const translations = {
 
     // Log
     log_title: '飞行遥测日志',
-    log_title_dynamic: '遥测数据 - {mass}t 配置',
+    log_title_dynamic: '遥测数据 - {mass}t 载荷配置',
     log_config_summary: '起飞: {total}t • 干重: {dry}t • {engineCount}x {engine}',
     log_time: 'T+ (s)',
     log_height: '高度 (m)',

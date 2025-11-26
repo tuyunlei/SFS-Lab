@@ -1,6 +1,8 @@
 
+
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Settings, Zap, Gauge, Scale, Play, RefreshCw, Info, Maximize } from 'lucide-react';
+import { Settings, Zap, Gauge, Scale, Play, RefreshCw, Info, Maximize, Target } from 'lucide-react';
 import { RocketParams, SimulationSettings, Planet } from '../types';
 import { simulateLaunch } from '../services/physics';
 import { InputGroup, NumberInput, Select, Slider } from './InputGroup';
@@ -17,20 +19,30 @@ interface DataPoint {
   payload: number;
   fuel: number;
   height: number;
+  deltaV: number;
 }
 
-const STORAGE_KEY_PF_PARAMS = 'sfs_pf_params';
+const STORAGE_KEY_PF_PARAMS = 'sfs_pf_params_v2';
 
 const formatNumber = (num: number, decimals = 2) => num.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
 // Helper to map a value to a color on a heat gradient
-const getValueColor = (value: number, min: number, max: number): string => {
-  if (max === min) return 'hsl(200, 100%, 50%)'; 
+const getValueColor = (value: number, min: number, max: number, target: 'maxHeight' | 'deltaV'): string => {
+  if (max === min) return target === 'maxHeight' ? 'hsl(200, 100%, 50%)' : 'hsl(270, 100%, 50%)'; 
+  
   let ratio = (value - min) / (max - min);
   ratio = Math.max(0, Math.min(1, ratio));
-  // Blue(240) -> Cyan(180) -> Green(120) -> Yellow(60) -> Red(0)
-  const hue = (1 - ratio) * 240;
-  return `hsl(${hue}, 80%, 50%)`;
+  
+  if (target === 'maxHeight') {
+    // Blue(240) -> Cyan(180) -> Green(120) -> Yellow(60) -> Red(0)
+    const hue = (1 - ratio) * 240;
+    return `hsl(${hue}, 80%, 50%)`;
+  } else {
+    // Dark Blue (240) -> Purple (270) -> Pink (300) -> Light Red (360)
+    // Map ratio 0->1 to Hue 240->360
+    const hue = 240 + (ratio * 120);
+    return `hsl(${hue}, 80%, 60%)`;
+  }
 };
 
 // Helper to generate all ticks for grid alignment
@@ -62,6 +74,7 @@ export const PayloadFuelOptimizer: React.FC<Props> = ({ planet, settings, setSet
       engineCount: 1,
       engine: engines[0], 
       payloadMass: 10, 
+      totalTankMass: 30, // Unused in matrix logic but required by type
       tankDryWetRatio: 0.1,
       minTotalTankMass: 10,
       maxTotalTankMass: 100,
@@ -69,6 +82,10 @@ export const PayloadFuelOptimizer: React.FC<Props> = ({ planet, settings, setSet
       minPayload: 5,
       maxPayload: 50,
       stepPayload: 5,
+      // Default dummy values for new required fields if using intersection type
+      minPayloadMass: 5,
+      maxPayloadMass: 50,
+      stepPayloadMass: 5,
     };
   });
 
@@ -127,14 +144,16 @@ export const PayloadFuelOptimizer: React.FC<Props> = ({ planet, settings, setSet
         for (let f = params.minTotalTankMass; f <= params.maxTotalTankMass; f += stepF) {
           const iterationParams: RocketParams = {
             ...params,
-            payloadMass: p
+            payloadMass: p // Used as default payload for sim
           };
           
-          const res = simulateLaunch(f, iterationParams, planet, sweepSettings, 0);
+          // Pass f as tank mass, p as payloadOverride (redundant but explicit)
+          const res = simulateLaunch(f, iterationParams, planet, sweepSettings, 0, p);
           results.push({
             payload: parseFloat(p.toFixed(2)),
             fuel: parseFloat(f.toFixed(2)),
-            height: res.maxHeight / 1000 // KM
+            height: res.maxHeight / 1000, // KM
+            deltaV: res.deltaV // m/s
           });
         }
       }
@@ -143,22 +162,23 @@ export const PayloadFuelOptimizer: React.FC<Props> = ({ planet, settings, setSet
     }, 50);
   };
 
-  // Find Stats
+  // Find Stats based on current optimization Target
   const stats = useMemo(() => {
-    if (data.length === 0) return { minH: 0, maxH: 0, best: null };
-    let minH = Infinity;
-    let maxH = -Infinity;
+    if (data.length === 0) return { min: 0, max: 0, best: null };
+    let minVal = Infinity;
+    let maxVal = -Infinity;
     let best = data[0];
 
     data.forEach(d => {
-      if (d.height < minH) minH = d.height;
-      if (d.height > maxH) {
-        maxH = d.height;
+      const val = settings.optimizationTarget === 'maxHeight' ? d.height : d.deltaV;
+      if (val < minVal) minVal = val;
+      if (val > maxVal) {
+        maxVal = val;
         best = d;
       }
     });
-    return { minH, maxH, best };
-  }, [data]);
+    return { min: minVal, max: maxVal, best };
+  }, [data, settings.optimizationTarget]);
 
   // Draw Heatmap
   useEffect(() => {
@@ -199,7 +219,9 @@ export const PayloadFuelOptimizer: React.FC<Props> = ({ planet, settings, setSet
       // Map Fuel to Y (Invert Y so low fuel is bottom)
       const y = height - (((pt.fuel - params.minTotalTankMass) / fRange) * (height - cellH)) - cellH;
 
-      ctx.fillStyle = getValueColor(pt.height, stats.minH, stats.maxH);
+      const val = settings.optimizationTarget === 'maxHeight' ? pt.height : pt.deltaV;
+      ctx.fillStyle = getValueColor(val, stats.min, stats.max, settings.optimizationTarget);
+      
       // Use Math.floor/ceil to snap to pixels for crisp edges
       ctx.fillRect(Math.floor(x), Math.floor(y), Math.ceil(cellW), Math.ceil(cellH));
     });
@@ -230,7 +252,7 @@ export const PayloadFuelOptimizer: React.FC<Props> = ({ planet, settings, setSet
       ctx.fill();
     }
 
-  }, [data, containerSize, params, stats]);
+  }, [data, containerSize, params, stats, settings.optimizationTarget]);
 
   // Handle Mouse Hover
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -417,7 +439,17 @@ export const PayloadFuelOptimizer: React.FC<Props> = ({ planet, settings, setSet
               <Info size={18} />
               <h3 className="font-semibold uppercase tracking-wider text-sm">{t('opt_config_physics')}</h3>
             </div>
-             <label className="flex items-center gap-2 text-sm text-space-300 cursor-pointer">
+             <InputGroup label={t('opt_target_label')}>
+                 <Select 
+                   value={settings.optimizationTarget}
+                   onChange={(e) => setSettings({...settings, optimizationTarget: e.target.value as 'maxHeight' | 'deltaV'})}
+                 >
+                   <option value="maxHeight">{t('opt_target_height')}</option>
+                   <option value="deltaV">{t('opt_target_dv')}</option>
+                 </Select>
+            </InputGroup>
+            <div className="h-px bg-space-700/50 my-1"></div>
+            <label className="flex items-center gap-2 text-sm text-space-300 cursor-pointer">
               <input 
                 type="checkbox" 
                 checked={settings.gravityModel === 'variable'} 
@@ -466,13 +498,18 @@ export const PayloadFuelOptimizer: React.FC<Props> = ({ planet, settings, setSet
                  <div>
                     <p className="text-2xl font-bold text-space-100">
                       {t('pf_max_coord', { 
-                        height: formatNumber(stats.best.height, 2), 
+                        value: settings.optimizationTarget === 'maxHeight' 
+                               ? `${formatNumber(stats.best.height, 2)}km`
+                               : `${formatNumber(stats.best.deltaV, 0)}m/s`,
                         payload: stats.best.payload, 
                         fuel: stats.best.fuel 
                       })}
                     </p>
                     <p className="text-sm text-space-400 mt-1">
-                      Range: {formatNumber(stats.minH, 1)}km - {formatNumber(stats.maxH, 1)}km
+                      {settings.optimizationTarget === 'maxHeight'
+                         ? `Range: ${formatNumber(stats.min, 1)}km - ${formatNumber(stats.max, 1)}km`
+                         : `Range: ${formatNumber(stats.min, 0)}m/s - ${formatNumber(stats.max, 0)}m/s`
+                      }
                     </p>
                  </div>
               </div>
@@ -484,12 +521,25 @@ export const PayloadFuelOptimizer: React.FC<Props> = ({ planet, settings, setSet
          {/* Heatmap Area */}
          <div className="flex-1 bg-space-800 border border-space-600 rounded-xl p-6 relative flex flex-col h-[600px]">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-sm font-medium text-space-400">{t('pf_heatmap_title')}</h3>
+              <h3 className="text-sm font-medium text-space-400 flex items-center gap-2">
+                 <Target size={14} />
+                 {t('pf_heatmap_title')}
+                 <span className="text-space-accent bg-space-900 px-2 py-0.5 rounded text-xs border border-space-700">
+                    {settings.optimizationTarget === 'maxHeight' ? t('opt_target_height') : t('opt_target_dv')}
+                 </span>
+              </h3>
               
               {/* Legend */}
               <div className="flex items-center gap-2 text-xs text-space-400">
                 <span>{t('pf_legend_low')}</span>
-                <div className="w-32 h-3 rounded-full" style={{ background: 'linear-gradient(to right, hsl(240, 80%, 50%), hsl(180, 80%, 50%), hsl(120, 80%, 50%), hsl(60, 80%, 50%), hsl(0, 80%, 50%))' }}></div>
+                <div 
+                   className="w-32 h-3 rounded-full" 
+                   style={{ 
+                     background: settings.optimizationTarget === 'maxHeight' 
+                       ? 'linear-gradient(to right, hsl(240, 80%, 50%), hsl(180, 80%, 50%), hsl(120, 80%, 50%), hsl(60, 80%, 50%), hsl(0, 80%, 50%))'
+                       : 'linear-gradient(to right, hsl(240, 80%, 60%), hsl(270, 80%, 60%), hsl(300, 80%, 60%), hsl(360, 80%, 60%))'
+                   }}
+                ></div>
                 <span>{t('pf_legend_high')}</span>
               </div>
             </div>
@@ -542,7 +592,13 @@ export const PayloadFuelOptimizer: React.FC<Props> = ({ planet, settings, setSet
                   {hoverInfo && (
                      <div className="absolute bottom-4 right-4 bg-gray-900 border border-slate-600 p-3 rounded-lg shadow-xl pointer-events-none z-20">
                         <p className="text-sm font-bold text-white font-mono whitespace-nowrap">
-                           {t('pf_hover_info', { p: hoverInfo.payload, f: hoverInfo.fuel, h: hoverInfo.height.toFixed(2) })}
+                           {t('pf_hover_info', { 
+                             p: hoverInfo.payload, 
+                             f: hoverInfo.fuel, 
+                             v: settings.optimizationTarget === 'maxHeight' 
+                                ? `${hoverInfo.height.toFixed(2)}km`
+                                : `${hoverInfo.deltaV.toFixed(0)}m/s`
+                           })}
                         </p>
                      </div>
                   )}

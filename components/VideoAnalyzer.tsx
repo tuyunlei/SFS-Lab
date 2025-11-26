@@ -87,6 +87,9 @@ export const VideoAnalyzer: React.FC = () => {
     apiKey: '',
     model: 'ep-20250218151806-xxxxx',
   });
+  const [geminiConfig, setGeminiConfig] = useState({
+    apiKey: '',
+  });
 
   // Batch Queue State
   const [jobQueue, setJobQueue] = useState<AnalysisJob[]>([]);
@@ -306,9 +309,9 @@ export const VideoAnalyzer: React.FC = () => {
   };
 
   const callGemini = async (base64Data: string, time: number): Promise<AnalyzedFrame> => {
-    if (!process.env.API_KEY) throw new Error("API Key missing");
+    if (!geminiConfig.apiKey) throw new Error("Gemini API Key missing");
 
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: geminiConfig.apiKey });
     try {
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
@@ -779,6 +782,20 @@ export const VideoAnalyzer: React.FC = () => {
                 </div>
               )}
 
+              {aiProvider === 'gemini' && (
+                <div className="bg-space-900/50 p-3 rounded-lg border border-space-700/50 space-y-3">
+                  <InputGroup label={t('va_gemini_key_label')}>
+                    <input 
+                      type="password"
+                      className="w-full bg-space-800 border border-space-600 rounded-md px-3 py-2 text-sm text-space-100 focus:outline-none focus:ring-2 focus:ring-space-accent"
+                      placeholder={t('va_gemini_ph_key')}
+                      value={geminiConfig.apiKey}
+                      onChange={(e) => setGeminiConfig({...geminiConfig, apiKey: e.target.value})}
+                    />
+                  </InputGroup>
+                </div>
+              )}
+
               <InputGroup label={t('va_fps_label')} subLabel={t('va_fps_sub')}>
                 <NumberInput 
                   min={0.1} max={5} step={0.1}
@@ -807,7 +824,7 @@ export const VideoAnalyzer: React.FC = () => {
                 <div className="flex flex-col gap-3">
                    <button
                     onClick={startAnalysisLoop}
-                    disabled={!videoUrl || (aiProvider === 'volcengine' && !volcConfig.apiKey)}
+                    disabled={!videoUrl || (aiProvider === 'volcengine' && !volcConfig.apiKey) || (aiProvider === 'gemini' && !geminiConfig.apiKey)}
                     className="w-full py-3 bg-space-accent hover:bg-space-accent/90 text-white font-bold rounded-lg flex items-center justify-center gap-2 transition shadow-lg shadow-space-accent/20 active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
                   >
                     <Layers size={18} /> {t('va_start_analysis')}
@@ -894,7 +911,7 @@ export const VideoAnalyzer: React.FC = () => {
                    </span>
                    <button 
                     onClick={analyzeCurrentFrame}
-                    disabled={isAiLoading || (aiProvider === 'volcengine' && !volcConfig.apiKey)}
+                    disabled={isAiLoading || (aiProvider === 'volcengine' && !volcConfig.apiKey) || (aiProvider === 'gemini' && !geminiConfig.apiKey)}
                     className={`text-xs px-3 py-1.5 rounded-lg flex items-center gap-2 font-medium transition-all ${isAiLoading ? 'bg-space-700 text-space-500 cursor-wait' : 'bg-space-accent hover:bg-space-accent/90 text-white shadow-lg shadow-space-accent/20'}`}
                    >
                      {isAiLoading ? (

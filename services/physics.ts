@@ -1,4 +1,5 @@
 
+
 import { RocketParams, SimulationSettings, SimulationResult, Planet, TelemetryPoint } from '../types';
 import { GRAVITY_EARTH } from '../constants';
 
@@ -81,14 +82,17 @@ export const simulateLaunch = (
   params: RocketParams,
   planet: Planet,
   settings: SimulationSettings,
-  logInterval: number = 0 // 0 means no logging
+  logInterval: number = 0, // 0 means no logging
+  payloadMassOverride?: number // Optional override for payload mass
 ): SimulationResult => {
   // 1. Calculate Mass Properties (SI Units: kg)
   const fuelMassT = tankTotalMassT * (1 - params.tankDryWetRatio);
   const tankDryMassT = tankTotalMassT * params.tankDryWetRatio;
   
   const enginesMassT = params.engineCount * params.engine.mass;
-  const payloadMassT = params.payloadMass;
+  
+  // Use override if provided, otherwise use params.payloadMass
+  const payloadMassT = payloadMassOverride !== undefined ? payloadMassOverride : params.payloadMass;
   
   const dryMassT = enginesMassT + payloadMassT + tankDryMassT;
   const totalMassT = dryMassT + fuelMassT;
@@ -114,6 +118,7 @@ export const simulateLaunch = (
   if (twrStart < 1.0001) {
     return {
       tankMass: tankTotalMassT,
+      payloadMass: payloadMassT,
       totalMassStart: totalMassT,
       fuelMass: fuelMassT,
       dryMass: dryMassT,
@@ -244,6 +249,7 @@ export const simulateLaunch = (
 
   return {
     tankMass: tankTotalMassT,
+    payloadMass: payloadMassT,
     totalMassStart: totalMassT,
     fuelMass: fuelMassT,
     dryMass: dryMassT,
@@ -257,27 +263,39 @@ export const simulateLaunch = (
 };
 
 /**
- * Runs the optimization sweep
+ * Runs the optimization sweep.
+ * Now supports both 'payload' sweep (Fix Fuel) and 'fuel' sweep (Fix Payload).
  */
 export const runOptimization = (
+  mode: 'payload' | 'fuel',
   params: RocketParams,
   planet: Planet,
   settings: SimulationSettings
 ): SimulationResult[] => {
   const results: SimulationResult[] = [];
   
-  if (params.stepTotalTankMass <= 0) return [];
-  if (params.minTotalTankMass > params.maxTotalTankMass) return [];
-
-  // Use a coarser time step for the sweep to keep UI responsive, unless user specified very coarse already
-  // But prioritize user accuracy if they want custom physics
-  // For sweep, we can perhaps relax it slightly if user set it extremely low (like 0.001) to avoid hang
   const sweepDt = Math.max(settings.timeStep, 0.1); 
   const sweepSettings = { ...settings, timeStep: sweepDt };
 
-  for (let m = params.minTotalTankMass; m <= params.maxTotalTankMass; m += params.stepTotalTankMass) {
-    // Disable telemetry for sweep to save memory
-    results.push(simulateLaunch(m, params, planet, sweepSettings, 0));
+  if (mode === 'payload') {
+    // Mode A: Fix Tank Mass, Sweep Payload
+    if (params.stepPayloadMass <= 0) return [];
+    if (params.minPayloadMass > params.maxPayloadMass) return [];
+
+    for (let p = params.minPayloadMass; p <= params.maxPayloadMass; p += params.stepPayloadMass) {
+      // simulateLaunch(tankMass, ..., payloadOverride)
+      results.push(simulateLaunch(params.totalTankMass, params, planet, sweepSettings, 0, p));
+    }
+  } else {
+    // Mode B: Fix Payload Mass, Sweep Tank Mass
+    if (params.stepTotalTankMass <= 0) return [];
+    if (params.minTotalTankMass > params.maxTotalTankMass) return [];
+
+    for (let f = params.minTotalTankMass; f <= params.maxTotalTankMass; f += params.stepTotalTankMass) {
+       // simulateLaunch(tankMass, ..., payloadOverride)
+       // We pass `params.payloadMass` as the fixed payload
+       results.push(simulateLaunch(f, params, planet, sweepSettings, 0, params.payloadMass));
+    }
   }
 
   return results;

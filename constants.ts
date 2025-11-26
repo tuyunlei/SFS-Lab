@@ -55,4 +55,5 @@ export const DEFAULT_SIMULATION_SETTINGS = {
   enableDrag: false,
   timeStep: 0.1,
   maxTime: 10000,
+  optimizationTarget: 'maxHeight' as const,
 };
