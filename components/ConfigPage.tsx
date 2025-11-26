@@ -27,16 +27,16 @@ export const ConfigPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div>
              <label className="text-sm font-medium text-space-400 mb-2 block uppercase tracking-wide">{t('cfg_difficulty')}</label>
-             <div className="flex bg-space-900 rounded-lg p-1 border border-space-700 w-full md:w-64">
+             <div className="flex bg-space-700 rounded-lg p-1 border border-space-600 w-full md:w-64">
                <button 
                  onClick={() => setDifficulty('normal')}
-                 className={`flex-1 py-2 px-4 rounded-md text-sm font-bold transition-all ${difficulty === 'normal' ? 'bg-space-success text-space-900 shadow-lg' : 'text-space-400 hover:text-space-200'}`}
+                 className={`flex-1 py-2 px-4 rounded-md text-sm font-bold transition-all ${difficulty === 'normal' ? 'bg-space-success text-white shadow-md' : 'text-space-400 hover:text-space-100 hover:bg-space-600/30'}`}
                >
                  Normal
                </button>
                <button 
                  onClick={() => setDifficulty('hard')}
-                 className={`flex-1 py-2 px-4 rounded-md text-sm font-bold transition-all ${difficulty === 'hard' ? 'bg-danger text-white shadow-lg' : 'text-space-400 hover:text-space-200'}`}
+                 className={`flex-1 py-2 px-4 rounded-md text-sm font-bold transition-all ${difficulty === 'hard' ? 'bg-danger text-white shadow-md' : 'text-space-400 hover:text-space-100 hover:bg-space-600/30'}`}
                >
                  Hard
                </button>

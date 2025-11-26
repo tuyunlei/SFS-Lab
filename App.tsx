@@ -1,12 +1,14 @@
 
+
 import React, { useState, useEffect } from 'react';
-import { Rocket, Layers, Menu, X, Languages, Sun, Moon, Activity, Video, Settings2, Globe } from 'lucide-react';
+import { Rocket, Layers, Menu, X, Languages, Sun, Moon, Activity, Video, Settings2, Globe, Grid } from 'lucide-react';
 import { DEFAULT_SIMULATION_SETTINGS } from './constants';
 import { OptimizationTool } from './components/OptimizationTool';
 import { MultiStageTool } from './components/MultiStageTool';
 import { FlightSimulator } from './components/FlightSimulator';
 import { VideoAnalyzer } from './components/VideoAnalyzer';
 import { ConfigPage } from './components/ConfigPage';
+import { PayloadFuelOptimizer } from './components/PayloadFuelOptimizer';
 import { SimulationSettings } from './types';
 import { useLanguage } from './contexts/LanguageContext';
 import { useTheme } from './contexts/ThemeContext';
@@ -15,7 +17,7 @@ import { useGameData } from './contexts/GameDataContext';
 const STORAGE_KEY_SETTINGS = 'sfs_sim_settings';
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'optimize' | 'simulator' | 'multistage' | 'analyzer' | 'config'>('optimize');
+  const [activeTab, setActiveTab] = useState<'optimize' | 'payload_opt' | 'simulator' | 'multistage' | 'analyzer' | 'config'>('optimize');
   
   // Persist settings to localStorage
   const [simulationSettings, setSimulationSettings] = useState<SimulationSettings>(() => {
@@ -107,6 +109,7 @@ function App() {
           <nav className="space-y-2 flex-1">
             <div className="text-xs font-semibold text-space-600 uppercase tracking-wider px-4 mb-2">{t('tools')}</div>
             <NavItem id="optimize" label={t('nav_optimize')} icon={Rocket} />
+            <NavItem id="payload_opt" label={t('nav_payload_opt')} icon={Grid} />
             <NavItem id="simulator" label={t('nav_simulator')} icon={Activity} />
             <NavItem id="multistage" label={t('nav_multistage')} icon={Layers} />
             <NavItem id="analyzer" label={t('nav_analyzer')} icon={Video} />
@@ -152,6 +155,7 @@ function App() {
             <div>
               <h1 className="text-2xl lg:text-3xl font-bold text-space-100 mb-1">
                 {activeTab === 'optimize' ? t('opt_title') : 
+                 activeTab === 'payload_opt' ? t('pf_title') :
                  activeTab === 'simulator' ? t('sim_title') : 
                  activeTab === 'analyzer' ? t('va_title') :
                  activeTab === 'config' ? t('cfg_title') :
@@ -159,6 +163,7 @@ function App() {
               </h1>
               <p className="text-space-400 text-sm">
                 {activeTab === 'optimize' ? t('opt_desc', { planet: t(`planet_${activePlanet.id}`) || activePlanet.name }) :
+                 activeTab === 'payload_opt' ? t('pf_desc') :
                  activeTab === 'simulator' ? t('sim_desc') :
                  activeTab === 'analyzer' ? t('va_desc') :
                  activeTab === 'config' ? t('cfg_desc') :
@@ -175,6 +180,12 @@ function App() {
                 settings={simulationSettings} 
                 setSettings={setSimulationSettings} 
               />
+            ) : activeTab === 'payload_opt' ? (
+               <PayloadFuelOptimizer 
+                planet={activePlanet} 
+                settings={simulationSettings} 
+                setSettings={setSimulationSettings} 
+               />
             ) : activeTab === 'simulator' ? (
               <FlightSimulator 
                 planet={activePlanet}

@@ -143,7 +143,7 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({ planet, settin
   }, [chartData, scrollTop, containerHeight]);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full relative">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:h-full relative">
        <style>{`
          .recharts-wrapper,
          .recharts-surface,
@@ -155,7 +155,7 @@ export const FlightSimulator: React.FC<FlightSimulatorProps> = ({ planet, settin
        `}</style>
       
       {/* Sidebar Controls */}
-      <div className="lg:col-span-4 xl:col-span-3 space-y-6 overflow-y-auto pr-2 custom-scrollbar max-h-[calc(100vh-100px)]">
+      <div className="lg:col-span-4 xl:col-span-3 space-y-6 lg:overflow-y-auto pr-2 custom-scrollbar lg:max-h-[calc(100vh-100px)]">
         
         {/* Rocket Configuration */}
         <section className="bg-space-800/50 border border-space-700 rounded-lg p-4 space-y-4">
