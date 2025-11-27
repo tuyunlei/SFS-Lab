@@ -1,13 +1,15 @@
 
 
 
+
+
 export const translations = {
   en: {
     // General
     app_title: 'SFS Lab',
     tools: 'Toolbox',
     system_body: 'Target Body',
-    version: 'v1.3.0 • SFS Engineering Companion',
+    version: 'v1.3.1 • SFS Engineering Companion',
     
     // Theme
     theme_system: 'Auto (System)',
@@ -284,6 +286,15 @@ export const translations = {
     ms_move_down: 'Move Down',
     ms_remove: 'Remove Stage',
     ms_cumulative: 'Cumulative Δv',
+    ms_type_label: 'Staging Mode',
+    ms_type_serial: 'Standard (Vertical)',
+    ms_type_parallel: 'Side Booster (Strap-on)',
+    ms_efficiency_title: 'Staging Efficiency',
+    ms_eff_gain: 'Gain vs Single Stage',
+    ms_eff_loss: 'Loss vs Single Stage',
+    ms_eff_desc: 'Comparison of this multi-stage design against a single-stage rocket with the same total mass and engine tech.',
+    ms_eff_good: 'Efficient Design',
+    ms_eff_bad: 'Inefficient (Dead Weight)',
     
     // Errors
     err_neg: 'Must be positive',
@@ -293,7 +304,7 @@ export const translations = {
     app_title: 'SFS 航天实验室',
     tools: '工程工具箱',
     system_body: '目标天体',
-    version: 'v1.3.0 • SFS Engineering Companion',
+    version: 'v1.3.1 • SFS Engineering Companion',
     
     // Theme
     theme_system: '自动 (跟随系统)',
@@ -551,7 +562,7 @@ export const translations = {
 
     // Multi-Stage Tool
     ms_title: '多级火箭规划',
-    ms_desc: '计算多级运载火箭的 Δv 预算、燃烧时间及推重比。',
+    ms_desc: '计算多级运载火箭的 Δv 预算、燃烧时间及推重比，支持助推器配置。',
     ms_add_stage: '添加一级',
     ms_total_dv: '总 Δv',
     ms_stage: '第 {n} 级',
@@ -570,6 +581,15 @@ export const translations = {
     ms_move_down: '下移',
     ms_remove: '删除',
     ms_cumulative: '累计 Δv',
+    ms_type_label: '分级模式',
+    ms_type_serial: '垂直串联 (Standard)',
+    ms_type_parallel: '侧挂助推器 (Booster)',
+    ms_efficiency_title: '分级效率分析',
+    ms_eff_gain: '对比单级火箭 Δv 增益',
+    ms_eff_loss: '对比单级火箭 Δv 损耗',
+    ms_eff_desc: '此指标对比了相同总质量下，使用单级火箭与当前多级设计的 Δv 差异。',
+    ms_eff_good: '分级收益高',
+    ms_eff_bad: '死重过多 / 效率低',
     
     // Errors
     err_neg: '必须为正数',

@@ -83,12 +83,17 @@ export const Select: React.FC<React.SelectHTMLAttributes<HTMLSelectElement>> = (
   return (
     <div className="relative">
       <select
-        className="w-full bg-space-800 border border-space-600 rounded-md px-3 py-2 text-sm text-space-100 focus:outline-none focus:ring-2 focus:ring-space-accent focus:border-transparent appearance-none"
+        className="w-full bg-space-800 border border-space-600 rounded-md pl-3 pr-10 py-2 text-sm text-space-100 focus:outline-none focus:ring-2 focus:ring-space-accent focus:border-transparent appearance-none truncate"
+        style={{ 
+          appearance: 'none', 
+          WebkitAppearance: 'none', 
+          MozAppearance: 'none' 
+        }}
         {...props}
       >
         {props.children}
       </select>
-      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center bg-space-800 pl-1">
         <svg className="w-4 h-4 text-space-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
       </div>
     </div>

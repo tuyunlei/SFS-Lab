@@ -87,7 +87,12 @@ export interface RocketStage {
   name: string;
   dryMass: number; // tonnes
   fuelMass: number; // tonnes
-  engineThrust: number; // tonnes
+  
+  engineId?: string; // Reference to engine model
+  engineCount: number; // Number of engines
+  engineThrust: number; // Total thrust (tonnes)
   engineIsp: number; // s
+  
   isEnabled: boolean;
+  stageType?: 'serial' | 'parallel'; // serial = vertical stacking, parallel = side booster burning with upper stage
 }
