@@ -1,7 +1,7 @@
 
 import { PLANETS } from '../constants';
 
-export type BodyId = 'earth' | 'moon' | 'mars' | 'venus';
+export type BodyId = 'mercury' | 'venus' | 'earth' | 'moon' | 'mars' | 'phobos' | 'deimos' | 'jupiter' | 'io' | 'europa' | 'ganymede' | 'callisto';
 export type LocationType = 'surface' | 'orbit';
 
 export interface Location {
@@ -49,6 +49,22 @@ const getPlanetPhysics = (bodyId: BodyId, difficulty: 'normal' | 'hard') => {
 };
 
 export const BASE_BODIES: Record<BodyId, BodyData> = {
+  mercury: {
+    orbitHeight: 35,
+    highOrbitHeight: 500,
+    ascentCost: 1250, // Updated based on SFS Wiki
+    hasAtmosphere: false,
+    transferFromEarthLEO: 2450, // Standard map value
+    captureFromEarthTransfer: 1900 // Standard map value
+  },
+  venus: {
+    orbitHeight: 40, 
+    highOrbitHeight: 500,
+    ascentCost: 5000, 
+    hasAtmosphere: true,
+    transferFromEarthLEO: 1020,
+    captureFromEarthTransfer: 900 
+  },
   earth: {
     orbitHeight: 30, 
     highOrbitHeight: 1500,
@@ -60,10 +76,10 @@ export const BASE_BODIES: Record<BodyId, BodyData> = {
   moon: {
     orbitHeight: 15, 
     highOrbitHeight: 100,
-    ascentCost: 280,
+    ascentCost: 320, // Low Orbit ~280m/s + margin
     hasAtmosphere: false,
-    transferFromEarthLEO: 850,
-    captureFromEarthTransfer: 380
+    transferFromEarthLEO: 860,
+    captureFromEarthTransfer: 280
   },
   mars: {
     orbitHeight: 20, 
@@ -73,13 +89,61 @@ export const BASE_BODIES: Record<BodyId, BodyData> = {
     transferFromEarthLEO: 1050,
     captureFromEarthTransfer: 700 
   },
-  venus: {
-    orbitHeight: 40, 
-    highOrbitHeight: 500,
-    ascentCost: 5000, 
+  phobos: {
+    orbitHeight: 5,
+    highOrbitHeight: 20,
+    ascentCost: 20,
+    hasAtmosphere: false,
+    transferFromEarthLEO: 1800, // Includes Mars capture
+    captureFromEarthTransfer: 100
+  },
+  deimos: {
+    orbitHeight: 5,
+    highOrbitHeight: 20,
+    ascentCost: 10,
+    hasAtmosphere: false,
+    transferFromEarthLEO: 1800, // Includes Mars capture
+    captureFromEarthTransfer: 50
+  },
+  jupiter: {
+    orbitHeight: 200,
+    highOrbitHeight: 5000,
+    ascentCost: 99999, // Gas Giant
     hasAtmosphere: true,
-    transferFromEarthLEO: 1000,
-    captureFromEarthTransfer: 900 
+    transferFromEarthLEO: 2080,
+    captureFromEarthTransfer: 4600 // Very expensive without aerobrake
+  },
+  io: {
+    orbitHeight: 30,
+    highOrbitHeight: 200,
+    ascentCost: 750, // Derived from orbital velocity ~571 m/s
+    hasAtmosphere: false,
+    transferFromEarthLEO: 2100, // Get to Jupiter SOI
+    captureFromEarthTransfer: 2500 // Jupiter Capture + Transfer to Io
+  },
+  europa: {
+    orbitHeight: 30,
+    highOrbitHeight: 200,
+    ascentCost: 600, // Derived from orbital velocity ~452 m/s
+    hasAtmosphere: false,
+    transferFromEarthLEO: 2100,
+    captureFromEarthTransfer: 2200
+  },
+  ganymede: {
+    orbitHeight: 30,
+    highOrbitHeight: 200,
+    ascentCost: 750, // Derived from orbital velocity ~613 m/s
+    hasAtmosphere: false,
+    transferFromEarthLEO: 2100,
+    captureFromEarthTransfer: 2000
+  },
+  callisto: {
+    orbitHeight: 30,
+    highOrbitHeight: 200,
+    ascentCost: 700, // Derived from orbital velocity ~545 m/s
+    hasAtmosphere: false,
+    transferFromEarthLEO: 2100,
+    captureFromEarthTransfer: 1800
   }
 };
 
@@ -154,6 +218,11 @@ export const calculateRoute = (
 
   if (currentLocation.type === 'surface') {
     // Surface -> Low Orbit
+    if (originBody.ascentCost > 50000) {
+       // Cannot ascend (Gas Giant)
+       // Do nothing or handle error? For now we just return empty or huge number
+    }
+    
     steps.push({
       type: 'ascent',
       from: { ...currentLocation },
@@ -208,8 +277,9 @@ export const calculateRoute = (
   }
 
   // === PHASE 2: Transfer (Low Orbit A -> Low Orbit B) ===
+  // Simplified Router: Uses Earth LEO as the hub for inter-body transfers
   
-  // Earth LEO is the central hub
+  // 2a. Ejection from Origin to Earth Hub
   if (currentLocation.bodyId !== 'earth' && currentLocation.bodyId !== to.bodyId) {
     const body = getBody(currentLocation.bodyId);
     
@@ -229,7 +299,7 @@ export const calculateRoute = (
     currentLocation = { bodyId: 'earth', type: 'orbit', orbitHeight: BASE_BODIES.earth.orbitHeight * heightMult };
   }
 
-  // From Hub (Earth) to Destination
+  // 2b. Transfer from Earth Hub to Destination
   if (currentLocation.bodyId !== to.bodyId) {
     const destBody = getBody(to.bodyId);
     const transferCost = destBody.transferFromEarthLEO;
@@ -331,16 +401,20 @@ export const calculateRoute = (
   if (to.type === 'surface') {
     // Low Orbit -> Surface
     const body = getBody(to.bodyId);
-    let landingCost = body.ascentCost;
-
-    steps.push({
-      type: 'landing',
-      from: { ...currentLocation },
-      to: { ...to },
-      deltaV: landingCost,
-      descriptionKey: 'dv_phase_landing',
-      details: {}
-    });
+    
+    if (body.ascentCost > 50000) {
+      // Cannot land
+    } else {
+        let landingCost = body.ascentCost;
+        steps.push({
+            type: 'landing',
+            from: { ...currentLocation },
+            to: { ...to },
+            deltaV: landingCost,
+            descriptionKey: 'dv_phase_landing',
+            details: {}
+        });
+    }
   } 
 
   return steps;

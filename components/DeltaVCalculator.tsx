@@ -6,7 +6,10 @@ import { BodyId, LocationType, calculateRoute, TravelStep, BASE_BODIES } from '.
 import { InputGroup, Select, NumberInput } from './InputGroup';
 import { ArrowRight, Plane, Rocket, Flag, Orbit, Wind, Map, AlertTriangle, ArrowUpCircle, ArrowDownCircle, RefreshCw } from 'lucide-react';
 
-const BODIES: BodyId[] = ['earth', 'moon', 'mars', 'venus'];
+const BODIES: BodyId[] = [
+  'mercury', 'venus', 'earth', 'moon', 'mars', 'phobos', 'deimos', 
+  'jupiter', 'io', 'europa', 'ganymede', 'callisto'
+];
 const LOCATIONS: LocationType[] = ['surface', 'orbit'];
 
 interface LocationState {

@@ -1,8 +1,4 @@
 
-
-
-
-
 export const translations = {
   en: {
     // General
@@ -26,10 +22,18 @@ export const translations = {
     nav_deltav: 'Delta-V Planner',
     
     // Planets
+    planet_mercury: 'Mercury',
+    planet_venus: 'Venus',
     planet_earth: 'Earth',
     planet_moon: 'Moon',
     planet_mars: 'Mars',
-    planet_venus: 'Venus',
+    planet_phobos: 'Phobos',
+    planet_deimos: 'Deimos',
+    planet_jupiter: 'Jupiter',
+    planet_io: 'Io',
+    planet_europa: 'Europa',
+    planet_ganymede: 'Ganymede',
+    planet_callisto: 'Callisto',
 
     // Engines
     engine_hawk: 'Hawk Engine',
@@ -321,10 +325,18 @@ export const translations = {
     nav_deltav: 'Delta-V 规划器',
     
     // Planets
+    planet_mercury: '水星 (Mercury)',
+    planet_venus: '金星 (Venus)',
     planet_earth: '地球 (Earth)',
     planet_moon: '月球 (Moon)',
     planet_mars: '火星 (Mars)',
-    planet_venus: '金星 (Venus)',
+    planet_phobos: '火卫一 (Phobos)',
+    planet_deimos: '火卫二 (Deimos)',
+    planet_jupiter: '木星 (Jupiter)',
+    planet_io: '木卫一 (Io)',
+    planet_europa: '木卫二 (Europa)',
+    planet_ganymede: '木卫三 (Ganymede)',
+    planet_callisto: '木卫四 (Callisto)',
 
     // Engines
     engine_hawk: '鹰式引擎 (Hawk)',
